@@ -10,7 +10,7 @@ import Sidebar from "../components/Sidebar";
    DASHBOARD LAYOUT — Shell with Sidebar + Topbar + Role Switch
 ═══════════════════════════════════════════════════════════════ */
 export default function DashboardLayout() {
-  const { user, role, switchRole, logout, isAdmin } = useAuth();
+  const { user, role, logout, isAdmin } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const isMobile = useIsMobile(768);
   const navigate = useNavigate();
@@ -77,14 +77,8 @@ export default function DashboardLayout() {
             </div>
           </div>
           <div style={{ display: "flex", gap: isMobile ? 6 : 12, alignItems: "center", flexShrink: 0 }}>
-            {/* Role Switch */}
-            <div className="role-switch">
-              <button className={role === "admin" ? "active" : ""} onClick={() => { if (role !== "admin") { switchRole(); navigate("/dashboard"); } }}>
-                👮 {isMobile ? "" : "Admin"}
-              </button>
-              <button className={role === "user" ? "active" : ""} onClick={() => { if (role !== "user") { switchRole(); navigate("/dashboard"); } }}>
-                👤 {isMobile ? "" : "User"}
-              </button>
+            <div style={{ background: isAdmin ? T.primaryBg : T.accentLight, color: isAdmin ? T.primary : T.accent, border: `1px solid ${isAdmin ? T.primary : T.accent}22`, borderRadius: 999, padding: isMobile ? "6px 10px" : "8px 12px", fontSize: 12, fontWeight: 800 }}>
+              {isAdmin ? "ADMIN" : "USER"}
             </div>
             {/* Notification */}
             <div style={{ width: 36, height: 36, borderRadius: 8, background: T.bg, border: `1px solid ${T.border}`, display: "flex", alignItems: "center", justifyContent: "center", cursor: "pointer", position: "relative", fontSize: 15 }}>
