@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Poppins:wght@600;700;800;900&display=swap');
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -9,35 +11,54 @@ html {
 }
 
 body {
-  background: #04060D;
-  color: #EDF2FF;
-  font-family: 'DM Sans', 'Segoe UI', sans-serif;
+  background: #F5F6FA;
+  color: #1A1A2E;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
+  line-height: 1.6;
 }
 
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Poppins', 'Inter', sans-serif;
+  line-height: 1.2;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font-family: 'Inter', sans-serif;
+}
+
+/* ── Scrollbar ── */
 ::-webkit-scrollbar {
-  width: 5px;
-  height: 5px;
+  width: 6px;
+  height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #080C18;
+  background: #F0F2F8;
 }
 ::-webkit-scrollbar-thumb {
-  background: #151F35;
+  background: #CBD5E0;
   border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #A0AEC0;
 }
 
 select option {
-  background: #0C1220;
+  background: #FFFFFF;
 }
 
 input::placeholder,
 textarea::placeholder {
-  color: #2A3A55;
+  color: #A0AEC0;
 }
 
-/* ── Responsive table scroll wrapper ── */
+/* ── Table scroll wrapper ── */
 .table-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -47,7 +68,7 @@ textarea::placeholder {
 .sidebar-overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0,0,0,0.3);
   z-index: 199;
   opacity: 0;
   pointer-events: none;
@@ -73,7 +94,7 @@ textarea::placeholder {
   display: block;
   width: 22px;
   height: 2px;
-  background: #7A8BA8;
+  background: #4A5568;
   border-radius: 2px;
   transition: all .3s ease;
 }
@@ -86,26 +107,57 @@ textarea::placeholder {
 
 /* ── Animations ── */
 @keyframes fadeUp {
-  from { opacity: 0; transform: translateY(28px); }
+  from { opacity: 0; transform: translateY(24px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes slideInLeft {
+  from { opacity: 0; transform: translateX(-30px); }
   to   { opacity: 1; transform: none; }
 }
 @keyframes pulse {
   0%, 100% { opacity: 1; }
-  50%       { opacity: 0.3; }
-}
-@keyframes blink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0; }
+  50%       { opacity: 0.5; }
 }
 @keyframes bounce {
-  0%, 100% { transform: translateX(-50%) translateY(0); }
-  50%       { transform: translateX(-50%) translateY(8px); }
+  0%, 100% { transform: translateY(0); }
+  50%       { transform: translateY(6px); }
 }
 @keyframes ticker {
   from { transform: translateX(0); }
   to   { transform: translateX(-50%); }
 }
-@keyframes slideIn {
-  from { transform: translateX(-100%); }
-  to   { transform: translateX(0); }
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* ── Role Switch Toggle ── */
+.role-switch {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #F0F2F8;
+  border-radius: 100px;
+  padding: 4px;
+  border: 1px solid #E2E6EF;
+}
+.role-switch button {
+  padding: 6px 16px;
+  border: none;
+  border-radius: 100px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all .2s;
+  background: transparent;
+  color: #718096;
+}
+.role-switch button.active {
+  background: #C62828;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(198,40,40,0.3);
 }

@@ -7,61 +7,91 @@ import useIsMobile from "../hooks/useIsMobile";
 
 function DBTrack() {
   const isMobile = useIsMobile(768);
-  const [q, setQ] = useState(""); const [result, setResult] = useState(null); const [err, setErr] = useState("");
+  const [val, setVal] = useState("");
+  const [res, setRes] = useState(null);
+  const [err, setErr] = useState("");
+
   const search = () => {
-    const f = COMPLAINTS.find(c => c.id.toLowerCase() === q.toLowerCase().trim());
-    if (f) { setResult(f); setErr(""); } else { setResult(null); setErr("Not found. Try: CMP-2401, CMP-2399, CMP-2398"); }
+    if (!val.trim()) { setErr("Please enter a tracking ID or phone number"); setRes(null); return; }
+    setErr("");
+    const f = COMPLAINTS.find(c => c.id.toLowerCase() === val.trim().toLowerCase() || c.phone === val.trim());
+    if (f) setRes(f);
+    else setErr("No complaint found with that ID or phone number.");
   };
+
   const p = isMobile ? "16px" : "28px 34px";
+
   return (
-    <div style={{ padding: p }}>
-      <div style={{ maxWidth: 580, margin: "0 auto" }}>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: isMobile ? 18 : 26, marginBottom: 18 }}>
-          <div style={{ color: T.text, fontWeight: 800, fontSize: 16, marginBottom: 4, fontFamily: "'Syne',sans-serif" }}>Track Your Complaint</div>
-          <div style={{ color: T.sub, fontSize: 13, marginBottom: 20 }}>Enter your complaint ID for real-time status</div>
-          <div style={{ display: "flex", gap: 10, flexDirection: isMobile ? "column" : "row" }}>
-            <input value={q} onChange={e => setQ(e.target.value)} onKeyDown={e => e.key === "Enter" && search()} placeholder="e.g. CMP-2401" style={{ flex: 1, background: T.surf, border: `1px solid ${T.border}`, borderRadius: 8, padding: "11px 14px", color: T.text, fontSize: 14, outline: "none", fontFamily: "monospace" }} />
-            <button onClick={search} style={{ background: `linear-gradient(90deg,${T.cyan},${T.blue})`, color: "#fff", border: "none", borderRadius: 8, padding: "11px 22px", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Track →</button>
-          </div>
-          {err && <div style={{ color: T.red, fontSize: 13, marginTop: 10 }}>{err}</div>}
-        </div>
-        {result && (
-          <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, overflow: "hidden" }}>
-            <div style={{ padding: "18px 22px", borderBottom: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 8 }}>
-              <div><span style={{ color: T.cyan, fontFamily: "monospace", fontWeight: 700 }}>{result.id}</span><div style={{ color: T.text, fontWeight: 700, fontSize: 15, marginTop: 3 }}>{result.dept} · {result.location}</div></div>
-              <Badge status={result.status} />
-            </div>
-            <div style={{ padding: isMobile ? "14px 16px" : "18px 22px" }}>
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr", gap: 10, marginBottom: 16 }}>
-                <div style={{ background: T.surf, borderRadius: 9, padding: "11px 13px" }}><div style={{ color: T.sub, fontSize: 11, marginBottom: 5 }}>Citizen</div><div style={{ color: T.text, fontWeight: 700, fontSize: 13 }}>{result.citizen}</div></div>
-                <div style={{ background: T.surf, borderRadius: 9, padding: "11px 13px" }}><div style={{ color: T.sub, fontSize: 11, marginBottom: 5 }}>Priority</div><PriorityDot p={result.priority} /></div>
-                <div style={{ background: T.surf, borderRadius: 9, padding: "11px 13px" }}><div style={{ color: T.sub, fontSize: 11, marginBottom: 5 }}>SLA</div><div style={{ color: result.sla < 0 ? T.red : result.sla <= 1 ? T.amber : T.green, fontWeight: 800, fontSize: 13 }}>{result.sla < 0 ? `${Math.abs(result.sla)}d overdue` : `${result.sla}d remaining`}</div></div>
-              </div>
-              <div style={{ background: T.surf, borderRadius: 9, padding: "12px 14px", marginBottom: 16 }}>
-                <div style={{ color: T.sub, fontSize: 11, marginBottom: 5 }}>Issue</div>
-                <div style={{ color: T.text, fontSize: 13, lineHeight: 1.6 }}>{result.desc}</div>
-              </div>
-              <div style={{ display: "flex", gap: 0, alignItems: "center" }}>
-                {["Filed", "Routed", "In Progress", "Resolved"].map((s, i) => {
-                  const statusMap = { "Pending": 1, "In Progress": 2, "Resolved": 3, "Escalated": 2 };
-                  const done = i < (statusMap[result.status] || 1);
-                  return (
-                    <div key={i} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                      <div style={{ display: "flex", alignItems: "center", width: "100%" }}>
-                        {i > 0 && <div style={{ flex: 1, height: 2, background: done ? T.cyan : T.border }} />}
-                        <div style={{ width: 20, height: 20, borderRadius: "50%", background: done ? T.cyan : T.border, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 9, fontWeight: 800, flexShrink: 0 }}>{done ? "✓" : i + 1}</div>
-                        {i < 3 && <div style={{ flex: 1, height: 2, background: T.border }} />}
-                      </div>
-                      <span style={{ color: done ? T.cyan : T.sub, fontSize: isMobile ? 8 : 9, fontWeight: 600 }}>{s}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
-        {!result && !err && <div style={{ textAlign: "center", padding: "20px 0", color: T.sub }}><div style={{ fontSize: 36, marginBottom: 10 }}>◎</div><div>Try: CMP-2401, CMP-2399, CMP-2398</div></div>}
+    <div style={{ padding: p, maxWidth: 640, margin: "0 auto" }}>
+      <div style={{ marginBottom: 32, textAlign: "center" }}>
+        <h1 style={{ color: T.text, fontSize: isMobile ? 24 : 32, fontWeight: 900, margin: "0 0 8px", fontFamily: "'Poppins',sans-serif" }}>Track Complaint</h1>
+        <p style={{ color: T.sub, fontSize: 15, margin: 0 }}>Check the real-time status of your grievance</p>
       </div>
+
+      <div style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: 24, padding: isMobile ? "24px 20px" : "40px", boxShadow: T.shadow, marginBottom: 24 }}>
+        <h2 style={{ fontSize: 16, fontWeight: 800, margin: "0 0 16px", color: T.text, fontFamily: "'Poppins',sans-serif" }}>Enter Details</h2>
+        <div style={{ position: "relative", marginBottom: 16 }}>
+          <span style={{ position: "absolute", left: 18, top: 14, fontSize: 18, color: T.sub }}>🔍</span>
+          <input 
+            value={val} 
+            onChange={e => { setVal(e.target.value); setErr(""); }} 
+            onKeyDown={e => e.key === "Enter" && search()}
+            placeholder="Tracking ID (e.g. CMP-26-892) or Phone" 
+            style={{ width: "100%", padding: "14px 16px 14px 48px", background: T.bg, border: `1px solid ${err ? T.red : T.border}`, borderRadius: 12, color: T.text, fontSize: 15, outline: "none", transition: "border .2s" }} 
+          />
+        </div>
+        {err && <div style={{ color: T.red, fontSize: 13, marginBottom: 16, fontWeight: 600 }}>{err}</div>}
+        <button onClick={search} style={{ background: T.gradientRed, color: "#fff", border: "none", borderRadius: 12, padding: "14px 24px", fontSize: 15, fontWeight: 700, width: "100%", cursor: "pointer", transition: "all .2s", boxShadow: `0 6px 20px ${T.primary}33` }}>
+          Track Status →
+        </button>
+      </div>
+
+      {res && (
+        <div style={{ background: T.bg, border: `1px solid ${T.borderLight}`, borderRadius: 24, padding: isMobile ? "24px 20px" : "32px", animation: "fadeUp .4s ease both" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <span style={{ color: T.primary, fontFamily: "monospace", fontSize: 14, fontWeight: 800 }}>{res.id}</span>
+              <h3 style={{ color: T.text, fontSize: 20, fontWeight: 800, margin: "4px 0 4px", fontFamily: "'Poppins',sans-serif" }}>{res.dept}</h3>
+              <span style={{ color: T.textSecondary, fontSize: 13, fontWeight: 500 }}>Filed {res.created}</span>
+            </div>
+            <Badge status={res.status} />
+          </div>
+
+          <div style={{ background: T.white, borderRadius: 16, padding: "20px", marginBottom: 24, border: `1px solid ${T.border}` }}>
+            <div style={{ color: T.text, fontWeight: 800, fontSize: 15, marginBottom: 16, fontFamily: "'Poppins',sans-serif" }}>Status Timeline</div>
+            {[
+              { time: "Day 1", action: "Filed", note: "Complaint registered", col: T.primary },
+              { time: "Day 1", action: "Assigned", note: `Officer assigned in ${res.dept}`, col: T.accent },
+              ...(res.status === "In Progress" || res.status === "Resolved" || res.status === "Escalated" ? [{ time: "Day 2", action: "In Progress", note: "Investigation underway", col: T.amber }] : []),
+              ...(res.status === "Resolved" ? [{ time: "Day 3", action: "Resolved", note: "Issue closed. SMS sent.", col: T.green }] : []),
+            ].map((t, i, arr) => (
+              <div key={i} style={{ display: "flex", gap: 16, paddingBottom: i < arr.length - 1 ? 20 : 0 }}>
+                <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                  <div style={{ width: 12, height: 12, borderRadius: "50%", background: t.col, flexShrink: 0, marginTop: 4, border: `2px solid ${T.white}`, boxShadow: `0 0 0 2px ${t.col}44` }} />
+                  {i < arr.length - 1 && <div style={{ width: 2, flex: 1, background: T.borderLight, marginTop: 4 }} />}
+                </div>
+                <div>
+                  <div style={{ color: T.text, fontSize: 14, fontWeight: 800 }}>{t.action}</div>
+                  <div style={{ color: T.textSecondary, fontSize: 13, marginTop: 2 }}>{t.note}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
+            <div style={{ background: T.white, borderRadius: 12, padding: "12px 16px", border: `1px solid ${T.border}` }}>
+              <div style={{ color: T.sub, fontSize: 11, marginBottom: 4, fontWeight: 700 }}>PRIORITY</div>
+              <PriorityDot p={res.priority} />
+            </div>
+            <div style={{ background: T.white, borderRadius: 12, padding: "12px 16px", border: `1px solid ${T.border}` }}>
+              <div style={{ color: T.sub, fontSize: 11, marginBottom: 4, fontWeight: 700 }}>SLA STATUS</div>
+              <div style={{ color: res.sla < 0 ? T.red : res.sla <= 1 ? T.amber : T.green, fontSize: 14, fontWeight: 800 }}>
+                {res.sla < 0 ? `${Math.abs(res.sla)}d Overdue` : `${res.sla}d Remaining`}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

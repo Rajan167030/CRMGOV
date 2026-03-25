@@ -1,98 +1,187 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
+import { Link } from "react-router-dom";
 import T from "../constants/tokens";
 import { DEPTS } from "../data/mockData";
 import useIsMobile from "../hooks/useIsMobile";
+import { useAuth } from "../context/AuthContext";
 
 function DBFile() {
   const isMobile = useIsMobile(768);
+  const { user } = useAuth();
   const [step, setStep] = useState(1);
   const [done, setDone] = useState(false);
-  const [form, setForm] = useState({ name: "", phone: "", email: "", dept: "", priority: "Medium", title: "", desc: "", location: "" });
-  const upd = (k, v) => setForm(p => ({ ...p, [k]: v }));
-  const ticketId = useRef(`CMP-${2410 + Math.floor(Math.random() * 90)}`).current;
-  const inp = { width: "100%", background: T.surf, border: `1px solid ${T.border}`, borderRadius: 8, padding: "10px 13px", color: T.text, fontSize: 13, outline: "none", boxSizing: "border-box" };
-  const lbl = { color: T.sub, fontSize: 11, fontWeight: 700, marginBottom: 5, display: "block", letterSpacing: .8, textTransform: "uppercase" };
+  
+  // Need state for validation
+  const [fd, setFd] = useState({ 
+    n: user?.name || "", 
+    p: user?.phone || "", 
+    d: "", 
+    l: "", 
+    desc: "" 
+  });
+  
+  const [err, setErr] = useState({});
+
+  const validate1 = () => {
+    let e = {};
+    if (!fd.n.trim()) e.n = "Name is required";
+    if (!fd.p.trim()) e.p = "Phone is required";
+    else if (!/^\+?[\d\s-]{10,}$/.test(fd.p)) e.p = "Invalid phone format";
+    setErr(e);
+    if (Object.keys(e).length === 0) setStep(2);
+  };
+
+  const validate2 = () => {
+    let e = {};
+    if (!fd.d) e.d = "Select a department";
+    if (!fd.l.trim()) e.l = "Location is required";
+    if (!fd.desc.trim()) e.desc = "Description is required";
+    else if (fd.desc.length < 10) e.desc = "Provide more details (min 10 chars)";
+    setErr(e);
+    if (Object.keys(e).length === 0) setStep(3);
+  };
+
+  const submit = () => {
+    setTimeout(() => setDone(true), 600);
+  };
+
+  const steps = [
+    { n: 1, title: "Citizen Info", desc: "Your contact details" },
+    { n: 2, title: "Complaint Details", desc: "Location & issue" },
+    { n: 3, title: "Review", desc: "Confirm submission" }
+  ];
+
+  const inputStyle = (errField) => ({
+    width: "100%", padding: "14px 16px", background: T.white, 
+    border: `1px solid ${err[errField] ? T.red : T.border}`,
+    borderRadius: 12, color: T.text, fontSize: 15, outline: "none",
+    boxShadow: "inset 0 1px 4px rgba(0,0,0,0.02)",
+    transition: "border .2s"
+  });
+
+  const btnStyle = {
+    background: T.gradientRed, color: "#fff", border: "none", borderRadius: 12, 
+    padding: "14px 32px", fontSize: 15, fontWeight: 700, cursor: "pointer", 
+    transition: "all .2s", boxShadow: `0 6px 20px ${T.primary}33`
+  };
+
   const p = isMobile ? "16px" : "28px 34px";
 
   if (done) return (
-    <div style={{ padding: p, display: "flex", justifyContent: "center" }}>
-      <div style={{ maxWidth: 520, width: "100%", textAlign: "center", paddingTop: 30 }}>
-        <div style={{ width: 72, height: 72, borderRadius: "50%", background: T.green + "22", border: `2px solid ${T.green}`, margin: "0 auto 20px", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 32 }}>✅</div>
-        <h2 style={{ color: T.text, fontSize: isMobile ? 20 : 24, fontWeight: 900, margin: "0 0 8px", fontFamily: "'Syne',sans-serif" }}>Complaint Registered!</h2>
-        <p style={{ color: T.sub, marginBottom: 24, fontSize: 14 }}>Auto-routed to the {form.dept || "relevant"} department.</p>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 13, padding: isMobile ? 16 : 22, textAlign: "left", marginBottom: 22 }}>
-          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
-            {[["Ticket ID", ticketId], ["Department", form.dept || "Water Supply"], ["Priority", form.priority], ["SLA", "3 working days"], ["Assigned", "Auto-routing…"], ["Updates", "SMS + Email"]].map(([k, v]) => (
-              <div key={k}><div style={{ color: T.sub, fontSize: 11, marginBottom: 3 }}>{k}</div><div style={{ color: k === "Ticket ID" ? T.cyan : T.text, fontWeight: 700, fontSize: 13, fontFamily: k === "Ticket ID" ? "monospace" : "inherit" }}>{v}</div></div>
-            ))}
-          </div>
+    <div style={{ padding: p, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "80vh" }}>
+      <div style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: 24, padding: isMobile ? "32px 24px" : "48px 56px", textAlign: "center", maxWidth: 460, boxShadow: T.shadowLg }}>
+        <div style={{ width: 80, height: 80, borderRadius: "50%", background: T.greenBg, color: T.green, fontSize: 40, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>✓</div>
+        <h2 style={{ color: T.text, fontSize: 24, fontWeight: 900, margin: "0 0 12px", fontFamily: "'Poppins',sans-serif" }}>Complaint Filed</h2>
+        <p style={{ color: T.textSecondary, fontSize: 15, margin: "0 0 24px", lineHeight: 1.6 }}>Your complaint has been registered successfully. The assigned department will be notified immediately.</p>
+        <div style={{ background: T.bg, padding: "16px", borderRadius: 12, marginBottom: 32, border: `1px solid ${T.borderLight}` }}>
+          <div style={{ color: T.sub, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Tracking ID</div>
+          <div style={{ color: T.primary, fontSize: 28, fontWeight: 900, fontFamily: "monospace", letterSpacing: 2 }}>{`CMP-26-${Math.floor(100+Math.random()*900)}`}</div>
         </div>
-        <button onClick={() => { setDone(false); setStep(1); setForm({ name: "", phone: "", email: "", dept: "", priority: "Medium", title: "", desc: "", location: "" }); }}
-          style={{ background: `linear-gradient(90deg,${T.cyan},${T.blue})`, color: "#fff", border: "none", borderRadius: 9, padding: "11px 28px", fontSize: 14, fontWeight: 700, cursor: "pointer", width: isMobile ? "100%" : "auto" }}>File Another</button>
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <Link to="/dashboard/my-complaints" style={btnStyle}>Track Status</Link>
+          <button onClick={() => { setStep(1); setDone(false); setFd({n:user?.name||"", p:user?.phone||"", d:"", l:"", desc:""}); }} style={{ ...btnStyle, background: T.white, color: T.text, border: `1px solid ${T.border}`, boxShadow: "none" }}>File Another</button>
+        </div>
       </div>
     </div>
   );
+
   return (
-    <div style={{ padding: p }}>
-      <div style={{ maxWidth: 640, margin: "0 auto" }}>
-        <div style={{ display: "flex", alignItems: "center", marginBottom: 26, gap: 0 }}>
-          {["Citizen Info", "Complaint Details", "Review & Submit"].map((s, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", flex: 1 }}>
-              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                <div style={{ width: 28, height: 28, borderRadius: "50%", display: "flex", alignItems: "center", justifyContent: "center", background: step > i + 1 ? T.green : step === i + 1 ? `linear-gradient(135deg,${T.cyan},${T.blue})` : T.border, color: step >= i + 1 ? "#fff" : T.sub, fontSize: 12, fontWeight: 800, boxShadow: step === i + 1 ? `0 0 12px ${T.cyan}66` : "none" }}>{step > i + 1 ? "✓" : i + 1}</div>
-                {!isMobile && <span style={{ color: step === i + 1 ? T.text : T.sub, fontSize: 10, fontWeight: 600, whiteSpace: "nowrap" }}>{s}</span>}
-              </div>
-              {i < 2 && <div style={{ flex: 1, height: 1, background: step > i + 1 ? T.cyan : T.border, margin: "0 6px", marginBottom: isMobile ? 0 : 16 }} />}
-            </div>
-          ))}
+    <div style={{ padding: p, maxWidth: 840, margin: "0 auto" }}>
+      <div style={{ marginBottom: 32, textAlign: "center" }}>
+        <h1 style={{ color: T.text, fontSize: isMobile ? 24 : 32, fontWeight: 900, margin: "0 0 8px", fontFamily: "'Poppins',sans-serif" }}>File a Complaint</h1>
+        <p style={{ color: T.sub, fontSize: 15, margin: 0 }}>Register your grievance for quick resolution</p>
+      </div>
+
+      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 36, position: "relative", maxWidth: 500, margin: "0 auto 40px" }}>
+        <div style={{ position: "absolute", top: 18, left: 30, right: 30, height: 3, background: T.borderLight, zIndex: 0 }}>
+          <div style={{ height: "100%", width: `${(step - 1) * 50}%`, background: T.primary, transition: "width .3s" }} />
         </div>
-        <div style={{ background: T.card, border: `1px solid ${T.border}`, borderRadius: 14, padding: isMobile ? 18 : 26 }}>
-          {step === 1 && (
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 18 }}>
-              <div style={{ gridColumn: "1/-1" }}><label style={lbl}>Full Name *</label><input style={inp} value={form.name} onChange={e => upd("name", e.target.value)} placeholder="Your full name" /></div>
-              <div><label style={lbl}>Mobile *</label><input style={inp} value={form.phone} onChange={e => upd("phone", e.target.value)} placeholder="+91 98765 43210" /></div>
-              <div><label style={lbl}>Email</label><input style={inp} value={form.email} onChange={e => upd("email", e.target.value)} placeholder="email@example.com" /></div>
-              <div style={{ gridColumn: "1/-1" }}><label style={lbl}>Address *</label><input style={inp} value={form.location} onChange={e => upd("location", e.target.value)} placeholder="Street, Area, City, Pincode" /></div>
-            </div>
-          )}
-          {step === 2 && (
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 18 }}>
-              <div><label style={lbl}>Department *</label>
-                <select style={inp} value={form.dept} onChange={e => upd("dept", e.target.value)}>
-                  <option value="">Select Department</option>
-                  {DEPTS.map(d => <option key={d.id}>{d.name}</option>)}
-                </select>
-              </div>
-              <div><label style={lbl}>Priority</label>
-                <select style={inp} value={form.priority} onChange={e => upd("priority", e.target.value)}>
-                  {["Low", "Medium", "High", "Critical"].map(p => <option key={p}>{p}</option>)}
-                </select>
-              </div>
-              <div style={{ gridColumn: "1/-1" }}><label style={lbl}>Title *</label><input style={inp} value={form.title} onChange={e => upd("title", e.target.value)} placeholder="Brief summary of the issue" /></div>
-              <div style={{ gridColumn: "1/-1" }}><label style={lbl}>Description *</label><textarea style={{ ...inp, minHeight: 100, resize: "vertical" }} value={form.desc} onChange={e => upd("desc", e.target.value)} placeholder="Describe the issue in detail…" /></div>
-            </div>
-          )}
-          {step === 3 && (
-            <div>
-              <div style={{ color: T.text, fontWeight: 800, fontSize: 15, marginBottom: 18, fontFamily: "'Syne',sans-serif" }}>Review Your Submission</div>
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 11, marginBottom: 18 }}>
-                {[["Name", form.name || "—"], ["Phone", form.phone || "—"], ["Department", form.dept || "—"], ["Priority", form.priority], ["Location", form.location || "—"], ["Title", form.title || "—"]].map(([k, v]) => (
-                  <div key={k} style={{ background: T.surf, borderRadius: 9, padding: "11px 14px" }}>
-                    <div style={{ color: T.sub, fontSize: 11, marginBottom: 3 }}>{k}</div>
-                    <div style={{ color: T.text, fontWeight: 600, fontSize: 13 }}>{v}</div>
-                  </div>
-                ))}
-              </div>
-              <div style={{ background: T.cyan + "0F", border: `1px solid ${T.cyan}22`, borderRadius: 9, padding: "13px 15px", color: T.sub, fontSize: 12, lineHeight: 1.6 }}>ℹ️ Complaint will be auto-routed to the {form.dept || "selected"} department with SLA tracking active.</div>
-            </div>
-          )}
-          <div style={{ display: "flex", justifyContent: "space-between", marginTop: 22, paddingTop: 18, borderTop: `1px solid ${T.border}`, gap: 10 }}>
-            {step > 1 ? <button onClick={() => setStep(s => s - 1)} style={{ background: "transparent", border: `1px solid ${T.border}`, color: T.sub, borderRadius: 8, padding: "9px 20px", fontSize: 13, cursor: "pointer", fontWeight: 600 }}>← Back</button> : <div />}
-            <button onClick={() => step < 3 ? setStep(s => s + 1) : setDone(true)} style={{ background: `linear-gradient(90deg,${T.cyan},${T.blue})`, color: "#fff", border: "none", borderRadius: 8, padding: "9px 26px", fontSize: 13, cursor: "pointer", fontWeight: 700, boxShadow: `0 4px 14px ${T.cyan}44`, flex: isMobile ? 1 : "none" }}>
-              {step === 3 ? "🚀 Submit Complaint" : "Continue →"}
-            </button>
+        {steps.map((s, i) => (
+          <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative", zIndex: 1 }}>
+            <div style={{ width: 40, height: 40, borderRadius: "50%", background: step >= s.n ? T.primary : T.white, border: `3px solid ${step >= s.n ? T.primary : T.borderLight}`, color: step >= s.n ? "#fff" : T.sub, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, marginBottom: 10, transition: "all .3s", boxShadow: step === s.n ? `0 0 0 4px ${T.primary}22` : "none" }}>{step > s.n ? "✓" : s.n}</div>
+            <div style={{ color: step >= s.n ? T.text : T.sub, fontSize: 12, fontWeight: 700 }}>{s.title}</div>
+            {!isMobile && <div style={{ color: T.muted, fontSize: 11 }}>{s.desc}</div>}
           </div>
-        </div>
+        ))}
+      </div>
+
+      <div style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: 24, padding: isMobile ? "24px 20px" : "40px", boxShadow: T.shadow }}>
+        {step === 1 && (
+          <div style={{ animation: "fadeIn .3s" }}>
+            <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 24px", color: T.text, fontFamily: "'Poppins',sans-serif" }}>Citizen Details</h2>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20 }}>
+              <div>
+                <label style={{ display: "block", color: T.textSecondary, fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Full Name <span style={{ color: T.red }}>*</span></label>
+                <input value={fd.n} onChange={e => { setFd({...fd, n: e.target.value}); setErr({...err, n: null}) }} placeholder="Enter name" style={inputStyle("n")} />
+                {err.n && <div style={{ color: T.red, fontSize: 12, marginTop: 6 }}>{err.n}</div>}
+              </div>
+              <div>
+                <label style={{ display: "block", color: T.textSecondary, fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Phone Number <span style={{ color: T.red }}>*</span></label>
+                <input value={fd.p} onChange={e => { setFd({...fd, p: e.target.value}); setErr({...err, p: null}) }} placeholder="+91 98765 43210" style={inputStyle("p")} />
+                {err.p && <div style={{ color: T.red, fontSize: 12, marginTop: 6 }}>{err.p}</div>}
+              </div>
+            </div>
+            <div style={{ marginTop: 32, display: "flex", justifyContent: "flex-end" }}>
+              <button onClick={validate1} style={btnStyle}>Next Step →</button>
+            </div>
+          </div>
+        )}
+
+        {step === 2 && (
+          <div style={{ animation: "fadeIn .3s" }}>
+            <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 24px", color: T.text, fontFamily: "'Poppins',sans-serif" }}>Issue Details</h2>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20, marginBottom: 20 }}>
+              <div>
+                <label style={{ display: "block", color: T.textSecondary, fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Department <span style={{ color: T.red }}>*</span></label>
+                <select value={fd.d} onChange={e => { setFd({...fd, d: e.target.value}); setErr({...err, d: null}) }} style={inputStyle("d")}>
+                  <option value="">Select Department...</option>
+                  {DEPTS.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
+                </select>
+                {err.d && <div style={{ color: T.red, fontSize: 12, marginTop: 6 }}>{err.d}</div>}
+              </div>
+              <div>
+                <label style={{ display: "block", color: T.textSecondary, fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Location / Address <span style={{ color: T.red }}>*</span></label>
+                <input value={fd.l} onChange={e => { setFd({...fd, l: e.target.value}); setErr({...err, l: null}) }} placeholder="Street, Area, Ward no." style={inputStyle("l")} />
+                {err.l && <div style={{ color: T.red, fontSize: 12, marginTop: 6 }}>{err.l}</div>}
+              </div>
+            </div>
+            <div>
+              <label style={{ display: "block", color: T.textSecondary, fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Description <span style={{ color: T.red }}>*</span></label>
+              <textarea value={fd.desc} onChange={e => { setFd({...fd, desc: e.target.value}); setErr({...err, desc: null}) }} placeholder="Please describe the issue in detail..." rows={4} style={{ ...inputStyle("desc"), resize: "vertical", minHeight: 120 }} />
+              {err.desc && <div style={{ color: T.red, fontSize: 12, marginTop: 6 }}>{err.desc}</div>}
+            </div>
+            <div style={{ marginTop: 32, display: "flex", justifyContent: "space-between" }}>
+              <button onClick={() => setStep(1)} style={{ ...btnStyle, background: T.white, color: T.text, border: `1px solid ${T.border}`, boxShadow: "none" }}>← Back</button>
+              <button onClick={validate2} style={btnStyle}>Review details →</button>
+            </div>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div style={{ animation: "fadeIn .3s" }}>
+            <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 24px", color: T.text, fontFamily: "'Poppins',sans-serif" }}>Review & Submit</h2>
+            <div style={{ background: T.bg, padding: "24px", borderRadius: 16, border: `1px solid ${T.borderLight}`, display: "flex", flexDirection: "column", gap: 16, marginBottom: 32 }}>
+              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
+                <div><div style={{ fontSize: 11, color: T.sub, fontWeight: 700, marginBottom: 4 }}>NAME</div><div style={{ fontSize: 15, color: T.text, fontWeight: 600 }}>{fd.n}</div></div>
+                <div><div style={{ fontSize: 11, color: T.sub, fontWeight: 700, marginBottom: 4 }}>PHONE</div><div style={{ fontSize: 15, color: T.text, fontWeight: 600 }}>{fd.p}</div></div>
+                <div><div style={{ fontSize: 11, color: T.sub, fontWeight: 700, marginBottom: 4 }}>DEPARTMENT</div><div style={{ fontSize: 15, color: T.text, fontWeight: 600 }}>{fd.d}</div></div>
+                <div><div style={{ fontSize: 11, color: T.sub, fontWeight: 700, marginBottom: 4 }}>LOCATION</div><div style={{ fontSize: 15, color: T.text, fontWeight: 600 }}>{fd.l}</div></div>
+              </div>
+              <div style={{ borderTop: `1px solid ${T.borderLight}`, paddingTop: 16 }}>
+                <div style={{ fontSize: 11, color: T.sub, fontWeight: 700, marginBottom: 6 }}>DESCRIPTION</div>
+                <div style={{ fontSize: 15, color: T.text, lineHeight: 1.6 }}>{fd.desc}</div>
+              </div>
+            </div>
+            <div style={{ display: "flex", gap: 12, alignItems: "flex-start", background: T.cyanBg, padding: 16, borderRadius: 12, marginBottom: 32, border: `1px solid ${T.cyan}33` }}>
+              <span style={{ fontSize: 20 }}>ℹ️</span>
+              <p style={{ margin: 0, fontSize: 13, color: T.cyan, lineHeight: 1.6, fontWeight: 600 }}>By submitting, you confirm that the information provided is true to the best of your knowledge.</p>
+            </div>
+            <div style={{ display: "flex", justifyContent: "space-between" }}>
+              <button onClick={() => setStep(2)} style={{ ...btnStyle, background: T.white, color: T.text, border: `1px solid ${T.border}`, boxShadow: "none" }}>← Edit</button>
+              <button onClick={submit} style={{ ...btnStyle, background: T.green, boxShadow: `0 6px 20px ${T.green}33` }}>Submit Complaint ✓</button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
