@@ -11,18 +11,20 @@ function DBDashboard() {
   const navigate = useNavigate();
   const { role, user } = useAuth();
   
+  // TODO: Fetch dashboard KPI metrics from backend API (e.g. GET /api/dashboard/stats)
   const stats = role === "admin" ? [
-    { label: "Total Complaints", value: "12,847", delta: "+8.3%", icon: "📋", col: T.primary },
-    { label: "Resolved Today", value: "284", delta: "+12%", icon: "✅", col: T.green },
-    { label: "Avg Resolution", value: "2.4d", delta: "-0.3d", icon: "⏱️", col: T.accent },
-    { label: "SLA Breached", value: "47", delta: "-23%", icon: "🚨", col: T.amber },
+    { label: "Total Complaints", value: "12,847", delta: "+8.3%", icon: "📋", col: T.primary, route: "/dashboard/complaints" },
+    { label: "Resolved Today", value: "284", delta: "+12%", icon: "✅", col: T.green, route: "/dashboard/complaints" },
+    { label: "Avg Resolution", value: "2.4d", delta: "-0.3d", icon: "⏱️", col: T.accent, route: "/dashboard/analytics" },
+    { label: "SLA Breached", value: "47", delta: "-23%", icon: "🚨", col: T.amber, route: "/dashboard/escalations" },
   ] : [
-    { label: "My Complaints", value: "4", delta: "Active", icon: "📂", col: T.primary },
-    { label: "Resolved", value: "3", delta: "Completed", icon: "✅", col: T.green },
-    { label: "In Progress", value: "1", delta: "Pending", icon: "⏳", col: T.amber },
-    { label: "Drafts", value: "0", delta: "Unsaved", icon: "📝", col: T.sub },
+    { label: "My Complaints", value: "4", delta: "Active", icon: "📂", col: T.primary, route: "/dashboard/my-complaints" },
+    { label: "Resolved", value: "3", delta: "Completed", icon: "✅", col: T.green, route: "/dashboard/my-complaints" },
+    { label: "In Progress", value: "1", delta: "Pending", icon: "⏳", col: T.amber, route: "/dashboard/my-complaints" },
+    { label: "Drafts", value: "0", delta: "Unsaved", icon: "📝", col: T.sub, route: "/dashboard/file" },
   ];
 
+  // TODO: Fetch channel distribution from backend
   const channels = [
     { ch: "Web Portal", n: 4821, pct: 37.5, col: T.primary }, 
     { ch: "Mobile App", n: 3912, pct: 30.4, col: T.accent },
@@ -47,7 +49,9 @@ function DBDashboard() {
       {/* ── Stats Strip ── */}
       <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: isMobile ? 12 : 16, marginBottom: isMobile ? 20 : 26 }}>
         {stats.map((s, i) => (
-          <div key={i} style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: 16, padding: isMobile ? "16px" : "24px", position: "relative", overflow: "hidden", boxShadow: T.shadow }}>
+          <div key={i} onClick={() => navigate(s.route)} style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: 16, padding: isMobile ? "16px" : "24px", position: "relative", overflow: "hidden", boxShadow: T.shadow, cursor: "pointer", transition: "transform .2s" }}
+            onMouseEnter={e => { e.currentTarget.style.transform = "translateY(-4px)"; }}
+            onMouseLeave={e => { e.currentTarget.style.transform = "none"; }}>
             <div style={{ position: "absolute", top: -20, right: -20, width: 80, height: 80, borderRadius: "50%", background: `${s.col}15` }} />
             <div style={{ display: "flex", justifyContent: "space-between", marginBottom: isMobile ? 8 : 12 }}>
               <span style={{ fontSize: isMobile ? 22 : 26 }}>{s.icon}</span>
@@ -74,6 +78,7 @@ function DBDashboard() {
             </button>
           </div>
           <div className="table-scroll">
+            {/* TODO: Fetch the latest 5 live complaints via websockets or polling: GET /api/complaints/recent */}
             {COMPLAINTS.slice(0, isMobile ? 4 : 5).map((c, i) => (
               <div key={c.id} style={{ display: "flex", flexWrap: isMobile ? "wrap" : "nowrap", alignItems: "center", padding: isMobile ? "12px 16px" : "14px 24px", gap: isMobile ? 8 : 12, borderBottom: i < 4 ? `1px solid ${T.borderLight}` : "none" }}>
                 <span style={{ color: T.primary, fontFamily: "monospace", fontSize: 13, fontWeight: 700, minWidth: isMobile ? "auto" : 96 }}>{c.id}</span>
@@ -133,7 +138,7 @@ function DBDashboard() {
               const rate = Math.round((d.resolved / d.complaints) * 100);
               const circ = 2 * Math.PI * 20, fill = circ * (rate / 100);
               return (
-                <div key={i} style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 12, padding: isMobile ? "14px 10px" : "18px 12px", textAlign: "center" }}>
+                <div key={i} onClick={() => navigate("/dashboard/departments")} style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 12, padding: isMobile ? "14px 10px" : "18px 12px", textAlign: "center", cursor: "pointer" }}>
                   <div style={{ fontSize: isMobile ? 24 : 28, marginBottom: 8 }}>{d.icon}</div>
                   <div style={{ color: T.text, fontSize: 12, fontWeight: 800, marginBottom: 12, fontFamily: "'Poppins',sans-serif" }}>{d.name}</div>
                   <svg width="50" height="50" viewBox="0 0 50 50" style={{ marginBottom: 6 }}>

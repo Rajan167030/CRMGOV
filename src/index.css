@@ -136,6 +136,7 @@ textarea::placeholder {
 }
 
 /* ── Role Switch Toggle ── */
+
 .role-switch {
   display: flex;
   align-items: center;

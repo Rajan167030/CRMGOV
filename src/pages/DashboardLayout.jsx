@@ -6,9 +6,6 @@ import { useAuth } from "../context/AuthContext";
 import useIsMobile from "../hooks/useIsMobile";
 import Sidebar from "../components/Sidebar";
 
-/* ═══════════════════════════════════════════════════════════════
-   DASHBOARD LAYOUT — Shell with Sidebar + Topbar + Role Switch
-═══════════════════════════════════════════════════════════════ */
 export default function DashboardLayout() {
   const { user, role, switchRole, logout, isAdmin } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);

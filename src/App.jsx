@@ -13,31 +13,22 @@ import DBEscalations from "./pages/DBEscalations";
 import DBProfile from "./pages/DBProfile";
 import DBMyComplaints from "./pages/DBMyComplaints";
 
-/* ═══════════════════════════════════════════════════════════════
-   PROTECTED ROUTE — redirects to /login if not authenticated
-═══════════════════════════════════════════════════════════════ */
 function ProtectedRoute({ children }) {
   const { user } = useAuth();
   if (!user) return <Navigate to="/login" replace />;
   return children;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   ADMIN-ONLY ROUTE — redirects regular users to dashboard
-═══════════════════════════════════════════════════════════════ */
 function AdminRoute({ children }) {
   const { isAdmin } = useAuth();
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
   return children;
 }
 
-/* ═══════════════════════════════════════════════════════════════
-   ROOT APP — ROUTING
-═══════════════════════════════════════════════════════════════ */
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
+      <BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}>
         <Routes>
           {/* Public routes */}
           <Route path="/" element={<LandingPage />} />

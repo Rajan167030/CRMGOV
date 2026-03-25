@@ -1,5 +1,5 @@
 /* ═══════════════════════════════════════════════════════════════
-   DESIGN TOKENS  —  Inspired by Delhi Metro (Light Gov Theme)
+   DESIGN TOKENS  —  Light Gov Theme
 ═══════════════════════════════════════════════════════════════ */
 const T = {
   /* Surfaces */
@@ -11,7 +11,7 @@ const T = {
   borderLight: "#EEF0F5",
 
   /* Brand */
-  primary: "#C62828",       /* govt-red inspired by Delhi Metro */
+  primary: "#C62828",       /* govt-red */
   primaryDark: "#8E0000",
   primaryLight: "#FF5F52",
   primaryBg: "#FFF0F0",

@@ -10,6 +10,8 @@ function DBComplaints() {
   const [filter, setFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState(null);
+  // TODO: Fetch this list of complaints from the backend dynamically instead of using mockData 
+  // e.g., const { data: complaints, isLoading } = useQuery(['complaints', filter], fetchComplaints);
   const filtered = COMPLAINTS.filter(c => (filter === "All" || c.status === filter) && (c.id + c.citizen + c.dept + c.location).toLowerCase().includes(search.toLowerCase()));
 
   const p = isMobile ? "16px" : "28px 34px";
@@ -91,6 +93,7 @@ function DBComplaints() {
           
           <div style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: 16, padding: "24px", boxShadow: T.shadow }}>
             <div style={{ color: T.text, fontWeight: 800, fontSize: 15, marginBottom: 16, fontFamily: "'Poppins',sans-serif" }}>Quick Actions</div>
+            {/* TODO: Connect backend API routes for quick actions. E.g., PUT /api/complaints/:id/status */}
             {["Reassign Officer", "Escalate to Supervisor", "Add Internal Note", "Mark Resolved", "Send SMS Update"].map((a, i) => (
               <button key={i} style={{ display: "block", width: "100%", padding: "12px 14px", marginBottom: 10, background: T.bg, border: `1px solid ${T.border}`, borderRadius: 10, color: T.text, fontSize: 13, cursor: "pointer", textAlign: "left", fontWeight: 600, transition: "all .2s" }}
                 onMouseEnter={e => { e.currentTarget.style.borderColor = T.primary; e.currentTarget.style.color = T.primary; }}

@@ -4,9 +4,6 @@ import { useAuth } from "../context/AuthContext";
 import T from "../constants/tokens";
 import useIsMobile from "../hooks/useIsMobile";
 
-/* ═══════════════════════════════════════════════════════════════
-   LOGIN PAGE — Role Selection (Admin / Citizen)
-═══════════════════════════════════════════════════════════════ */
 export default function LoginPage() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -17,6 +14,9 @@ export default function LoginPage() {
   const handleLogin = () => {
     if (!selectedRole) return;
     setLoading(true);
+    // TODO: Replace with actual auth API provider (Firebase/Auth0/Custom JWT)
+    // e.g. await axios.post('/api/auth', { email, password })
+    // If successful, push user object into context and redirect
     setTimeout(() => {
       login(selectedRole);
       navigate("/dashboard");

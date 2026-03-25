@@ -6,9 +6,6 @@ import Counter from "../components/Counter";
 import Reveal from "../components/Reveal";
 import useIsMobile from "../hooks/useIsMobile";
 
-/* ═══════════════════════════════════════════════════════════════
-   LANDING PAGE — Clean Government-style (Delhi Metro inspired)
-═══════════════════════════════════════════════════════════════ */
 export default function LandingPage() {
   const isMobile = useIsMobile(768);
   const isTablet = useIsMobile(1024);
@@ -22,10 +19,10 @@ export default function LandingPage() {
   }, []);
 
   const quickLinks = [
-    { icon: "✏️", label: "File Complaint", desc: "Submit a new civic complaint", color: T.primary },
-    { icon: "🔍", label: "Track Status", desc: "Check your complaint progress", color: T.accent },
-    { icon: "🏛️", label: "Departments", desc: "View department information", color: T.green },
-    { icon: "📞", label: "Helpline", desc: "24×7 support: 1800-XXX-XXXX", color: T.amber },
+    { icon: "✏️", label: "File Complaint", desc: "Submit a new civic complaint", color: T.primary, to: "/dashboard/file" },
+    { icon: "🔍", label: "Track Status", desc: "Check your complaint progress", color: T.accent, to: "/dashboard/track" },
+    { icon: "🏛️", label: "Departments", desc: "View department information", color: T.green, to: "/dashboard/departments" },
+    { icon: "📞", label: "Helpline", desc: "24×7 support: 1800-XXX-XXXX", color: T.amber, to: "#" },
   ];
 
   const features = [
@@ -123,22 +120,22 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── QUICK LINKS (like Delhi Metro service buttons) ── */}
+      {/* ── QUICK LINKS ── */}
       <section style={{ background: T.white, borderTop: `1px solid ${T.border}`, borderBottom: `1px solid ${T.border}` }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: isMobile ? "0 16px" : "0 48px" }}>
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: 0 }}>
             {quickLinks.map((q, i) => (
-              <div key={i} style={{ padding: isMobile ? "20px 14px" : "28px 20px", textAlign: "center", borderRight: i < quickLinks.length - 1 && !isMobile ? `1px solid ${T.border}` : "none", borderBottom: isMobile && i < 2 ? `1px solid ${T.border}` : "none", cursor: "pointer", transition: "all .2s" }}>
+              <Link to={q.to} key={i} onClick={e => { if(q.to === "#") e.preventDefault(); }} style={{ textDecoration: "none", padding: isMobile ? "20px 14px" : "28px 20px", textAlign: "center", borderRight: i < quickLinks.length - 1 && !isMobile ? `1px solid ${T.border}` : "none", borderBottom: isMobile && i < 2 ? `1px solid ${T.border}` : "none", cursor: "pointer", transition: "all .2s", display: "block" }}>
                 <div style={{ fontSize: 28, marginBottom: 8 }}>{q.icon}</div>
                 <div style={{ fontWeight: 700, fontSize: 14, color: q.color, marginBottom: 4 }}>{q.label}</div>
                 <div style={{ color: T.sub, fontSize: 12 }}>{q.desc}</div>
-              </div>
+              </Link>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── STATS STRIP (like Delhi Metro stats) ── */}
+      {/* ── STATS STRIP ── */}
       <section style={{ background: T.gradientRed, padding: isMobile ? "36px 16px" : "48px" }}>
         <div style={{ maxWidth: 1100, margin: "0 auto", display: "grid", gridTemplateColumns: isMobile ? "repeat(2,1fr)" : "repeat(4,1fr)", gap: isMobile ? 20 : 32 }}>
           {[
@@ -175,7 +172,7 @@ export default function LandingPage() {
                   <div style={{ width: 52, height: 52, borderRadius: 14, background: f.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 24, marginBottom: 18 }}>{f.icon}</div>
                   <div style={{ fontWeight: 800, fontSize: 16, color: T.text, marginBottom: 8, fontFamily: "'Poppins',sans-serif" }}>{f.title}</div>
                   <div style={{ color: T.sub, fontSize: 14, lineHeight: 1.6 }}>{f.desc}</div>
-                  <div style={{ marginTop: 16, color: f.color, fontSize: 13, fontWeight: 700, cursor: "pointer" }}>Learn More →</div>
+                  <Link to="/login" style={{ marginTop: 16, color: f.color, fontSize: 13, fontWeight: 700, textDecoration: "none", display: "inline-block" }}>Learn More →</Link>
                 </div>
               </Reveal>
             ))}
@@ -268,12 +265,31 @@ export default function LandingPage() {
               </div>
               <p style={{ fontSize: 13, lineHeight: 1.7, maxWidth: 260, color: "#A0AEC0" }}>Smart Public Service CRM — building transparent, scalable civic infrastructure for modern India.</p>
             </div>
-            {[["Platform", ["Dashboard", "File Complaint", "Track Complaint", "Analytics"]], ["Departments", ["Water Supply", "Road Works", "Electricity", "Sanitation"]], ["Support", ["Help Center", "API Docs", "Contact Us", "Status Page"]]].map(([h, links]) => (
+            {[
+              { h: "Platform", links: [
+                { l: "Dashboard", to: "/dashboard" }, 
+                { l: "File Complaint", to: "/dashboard/file" }, 
+                { l: "Track Complaint", to: "/dashboard/track" }, 
+                { l: "Analytics", to: "/dashboard/analytics" }
+              ]},
+              { h: "Departments", links: [
+                { l: "Water Supply", to: "/dashboard/departments" }, 
+                { l: "Road Works", to: "/dashboard/departments" }, 
+                { l: "Electricity", to: "/dashboard/departments" }, 
+                { l: "Sanitation", to: "/dashboard/departments" }
+              ]},
+              { h: "Support", links: [
+                { l: "Help Center", to: "#" }, 
+                { l: "API Docs", to: "#" }, 
+                { l: "Contact Us", to: "#" }, 
+                { l: "Status Page", to: "#" }
+              ]}
+            ].map(({h, links}) => (
               <div key={h}>
                 <div style={{ color: "#fff", fontWeight: 700, fontSize: 13, marginBottom: 14, fontFamily: "'Poppins',sans-serif" }}>{h}</div>
-                {links.map(l => (
-                  <div key={l} style={{ color: "#A0AEC0", fontSize: 13, marginBottom: 10, cursor: "pointer", transition: "color .15s" }}
-                    onMouseEnter={e => e.target.style.color = "#fff"} onMouseLeave={e => e.target.style.color = "#A0AEC0"}>{l}</div>
+                {links.map(({l, to}) => (
+                  <Link key={l} to={to} style={{ display: "block", color: "#A0AEC0", textDecoration: "none", fontSize: 13, marginBottom: 10, transition: "color .15s" }}
+                    onMouseEnter={e => e.target.style.color = "#fff"} onMouseLeave={e => e.target.style.color = "#A0AEC0"}>{l}</Link>
                 ))}
               </div>
             ))}

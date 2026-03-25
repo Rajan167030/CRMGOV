@@ -1,12 +1,9 @@
 import { createContext, useContext, useState } from "react";
 
-/* ═══════════════════════════════════════════════════════════════
-   AUTH CONTEXT  —  Admin / User role switching
-   In a real app this would connect to a backend auth system.
-   For now it provides mock login/logout and role switching.
-═══════════════════════════════════════════════════════════════ */
 const AuthContext = createContext(null);
 
+// TODO: Remove this mock object. In a production environment, user data will be returned 
+// by the backend API and decoded from a secure JWT session cookie or token.
 const MOCK_USERS = {
   admin: {
     id: "GOV-ADM-0001",
@@ -35,12 +32,16 @@ export function AuthProvider({ children }) {
   const [role, setRole] = useState(null); // 'admin' | 'user'
 
   const login = (selectedRole) => {
+    // TODO: Replace with `await axios.post('/api/auth/login', { credentials })`
+    // Then set the resulting JWT token in secure HTTP-only cookies or local storage
     const mockUser = MOCK_USERS[selectedRole];
     setUser(mockUser);
     setRole(selectedRole);
   };
 
   const logout = () => {
+    // TODO: Add backend API call: `await axios.post('/api/auth/logout')`
+    // Ensure all local tokens/sessions are cleared from context and storage
     setUser(null);
     setRole(null);
   };

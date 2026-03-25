@@ -1,8 +1,5 @@
 import T from "../constants/tokens";
 
-/* ═══════════════════════════════════════════════════════════════
-   SIDEBAR — Role-aware with Admin/User navigation
-═══════════════════════════════════════════════════════════════ */
 export default function Sidebar({ nav, page, onNavigate, onLogout, isOpen, onClose, isMobile, user, role }) {
   return (
     <>
