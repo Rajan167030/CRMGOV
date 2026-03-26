@@ -18,12 +18,20 @@ export const createComplaint = async ({ userId, state }) => {
   const complaint = await Complaint.create({
     userId,
     complaint: state.complaint.trim(),
+    ticketId:
+      typeof state.ticketId === "string" && state.ticketId.trim()
+        ? state.ticketId.trim()
+        : undefined,
     department: normalizeDepartment(state.department),
     location: state.location.trim(),
     priority: typeof state.priority === "string" ? state.priority.trim() || "Medium" : "Medium",
   });
 
   return complaint;
+};
+
+export const getComplaintByMongoId = async (complaintId) => {
+  return Complaint.findById(complaintId);
 };
 
 export const getComplaintsByUserId = async (userId) => {

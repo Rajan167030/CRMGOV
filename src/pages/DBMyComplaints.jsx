@@ -43,6 +43,8 @@ function DBMyComplaints() {
       year: "numeric",
     });
 
+  const displayComplaintId = (complaint) => complaint.ticketId || complaint._id;
+
   if (selected) return (
     <div style={{ padding: p }}>
       <button onClick={() => setSelected(null)} style={{ background: T.white, border: `1px solid ${T.border}`, color: T.textSecondary, borderRadius: 8, padding: "8px 16px", fontSize: 13, cursor: "pointer", marginBottom: 24, fontWeight: 700, boxShadow: T.shadow }}>← Back to List</button>
@@ -50,7 +52,7 @@ function DBMyComplaints() {
       <div style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: 16, padding: isMobile ? "20px" : "32px", marginBottom: 24, boxShadow: T.shadow }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 24, flexWrap: "wrap", gap: 12 }}>
           <div>
-            <span style={{ color: T.primary, fontFamily: "monospace", fontSize: 14, fontWeight: 800 }}>{selected._id}</span>
+            <span style={{ color: T.primary, fontFamily: "monospace", fontSize: 14, fontWeight: 800 }}>{displayComplaintId(selected)}</span>
             <h2 style={{ color: T.text, fontSize: isMobile ? 20 : 26, fontWeight: 800, margin: "6px 0 6px", fontFamily: "'Poppins',sans-serif" }}>{selected.department} Issue</h2>
             <span style={{ color: T.sub, fontSize: 13, fontWeight: 500 }}>Filed on {formatDate(selected.createdAt)}</span>
           </div>
@@ -63,7 +65,7 @@ function DBMyComplaints() {
         </div>
         
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "repeat(4,1fr)", gap: 16 }}>
-          {[["📍 Location", selected.location], ["🏛️ Department", selected.department], ["🚦 Priority", selected.priority || "Medium"], ["📝 Complaint ID", selected._id]].map(([k, v]) => (
+          {[["📍 Location", selected.location], ["🏛️ Department", selected.department], ["🚦 Priority", selected.priority || "Medium"], ["📝 Complaint ID", displayComplaintId(selected)]].map(([k, v]) => (
             <div key={k} style={{ background: T.white, borderRadius: 12, padding: "16px", border: `1px solid ${T.border}` }}>
               <div style={{ color: T.sub, fontSize: 11, marginBottom: 6, fontWeight: 700 }}>{k}</div>
               <div style={{ color: T.text, fontSize: 14, fontWeight: 800 }}>{v}</div>
@@ -112,7 +114,7 @@ function DBMyComplaints() {
           myComplaints.map((c, i) => (
             <div key={c._id} onClick={() => setSelected(c)} style={{ padding: "18px 16px", cursor: "pointer", borderBottom: i < myComplaints.length - 1 ? `1px solid ${T.borderLight}` : "none", background: T.white }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <span style={{ color: T.primary, fontFamily: "monospace", fontSize: 13, fontWeight: 800 }}>{c._id}</span>
+                <span style={{ color: T.primary, fontFamily: "monospace", fontSize: 13, fontWeight: 800 }}>{displayComplaintId(c)}</span>
                 <Badge status={c.status} />
               </div>
               <div style={{ color: T.text, fontSize: 16, fontWeight: 800, marginBottom: 8, fontFamily: "'Poppins',sans-serif" }}>{c.department} Issue</div>
@@ -130,7 +132,7 @@ function DBMyComplaints() {
             {myComplaints.map((c, i) => (
               <div key={c._id} onClick={() => setSelected(c)} style={{ display: "grid", gridTemplateColumns: "110px 1fr 140px 130px 110px", alignItems: "center", padding: "18px 28px", gap: 10, cursor: "pointer", borderBottom: i < myComplaints.length - 1 ? `1px solid ${T.borderLight}` : "none", transition: "all .15s", background: T.white }}
                 onMouseEnter={e => e.currentTarget.style.background = T.bg} onMouseLeave={e => e.currentTarget.style.background = T.white}>
-                <span style={{ color: T.primary, fontFamily: "monospace", fontSize: 14, fontWeight: 800 }}>{c._id.slice(-6)}</span>
+                <span style={{ color: T.primary, fontFamily: "monospace", fontSize: 14, fontWeight: 800 }}>{displayComplaintId(c)}</span>
                 <span style={{ color: T.text, fontSize: 15, fontWeight: 700, fontFamily: "'Poppins',sans-serif" }}>{c.department} Issue</span>
                 <span style={{ color: T.textSecondary, fontSize: 14 }}>{formatDate(c.createdAt)}</span>
                 <span style={{ color: T.textSecondary, fontSize: 14 }}>{c.department}</span>

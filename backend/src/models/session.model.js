@@ -31,10 +31,6 @@ const sessionSchema = new mongoose.Schema(
     messages: {
       type: [messageSchema],
       default: [],
-      validate: {
-        validator: (messages) => messages.length <= 10,
-        message: "Conversation cannot exceed 10 messages",
-      },
     },
   },
   {

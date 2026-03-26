@@ -13,6 +13,12 @@ const complaintSchema = new mongoose.Schema(
       required: true,
       trim: true,
     },
+    ticketId: {
+      type: String,
+      trim: true,
+      index: true,
+      sparse: true,
+    },
     department: {
       type: String,
       required: true,

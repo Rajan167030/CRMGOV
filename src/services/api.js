@@ -1,4 +1,5 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
+const AI_BASE_URL = import.meta.env.VITE_AI_BASE_URL || "http://localhost:8000";
 
 const getToken = () => localStorage.getItem("ps_crm_token");
 
@@ -123,6 +124,69 @@ export const sendChatMessage = async ({ sessionId, message }) => {
     body: JSON.stringify({
       sessionId,
       message,
+    }),
+  });
+};
+
+const aiRequest = async (path, body) => {
+  try {
+    const response = await fetch(`${AI_BASE_URL}${path}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    return await parseJsonResponse(response);
+  } catch (error) {
+    if (error instanceof TypeError) {
+      const networkError = new Error(
+        "Unable to reach the grievance model on localhost:8000."
+      );
+      networkError.cause = error;
+      throw networkError;
+    }
+
+    throw error;
+  }
+};
+
+export const startModelComplaintChat = async ({ text, sessionId }) => {
+  return aiRequest("/api/complaint", {
+    text,
+    session_id: sessionId || null,
+  });
+};
+
+export const continueModelComplaintChat = async ({
+  sessionId,
+  text,
+  conversationHistory = [],
+}) => {
+  return aiRequest("/api/reply", {
+    session_id: sessionId,
+    text,
+    conversation_history: conversationHistory,
+  });
+};
+
+export const saveComplaintRequest = async ({
+  complaint,
+  department,
+  location,
+  priority,
+  ticketId,
+}) => {
+  return apiRequest("/api/complaints", {
+    method: "POST",
+    headers: buildHeaders(),
+    body: JSON.stringify({
+      complaint,
+      department,
+      location,
+      priority,
+      ticketId,
     }),
   });
 };

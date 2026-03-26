@@ -1,8 +1,22 @@
 import {
+  createComplaint,
   getAllComplaints,
   getComplaintById,
   getComplaintsByUserId,
 } from "../services/complaint.service.js";
+
+export const createComplaintController = async (req, res, next) => {
+  try {
+    const complaint = await createComplaint({
+      userId: req.user.id,
+      state: req.body,
+    });
+
+    res.status(201).json({ complaint });
+  } catch (error) {
+    next(error);
+  }
+};
 
 export const listComplaintsController = async (req, res, next) => {
   try {
@@ -36,6 +50,5 @@ export const getComplaintController = async (req, res, next) => {
     next(error);
   }
 };
-
 
 
