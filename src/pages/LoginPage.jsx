@@ -11,7 +11,6 @@ export default function LoginPage() {
   const { login, register, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const isMobile = useIsMobile(768);
-  const [selectedRole, setSelectedRole] = useState(null);
   const [loading, setLoading] = useState(false);
   const [mode, setMode] = useState("signin");
   const [error, setError] = useState("");
@@ -29,7 +28,6 @@ export default function LoginPage() {
   }, [isAuthenticated, navigate]);
 
   const handleLogin = async () => {
-    if (!selectedRole) return;
     if (!form.email.trim() || !form.password.trim()) {
       setError("Email and password are required");
       return;
@@ -42,15 +40,10 @@ export default function LoginPage() {
         await login({
           email: form.email,
           password: form.password,
-          role: selectedRole,
         });
       } else {
         if (!form.name.trim()) {
           throw new Error("Name is required");
-        }
-
-        if (selectedRole !== "user") {
-          throw new Error("Self-registration is available only for citizen accounts");
         }
 
         await register({
@@ -58,7 +51,6 @@ export default function LoginPage() {
           phone: form.phone,
           email: form.email,
           password: form.password,
-          role: selectedRole,
         });
       }
 
@@ -151,23 +143,19 @@ export default function LoginPage() {
             {roles.map((r) => (
               <div
                 key={r.id}
-                onClick={() => setSelectedRole(r.id)}
                 style={{
                   background: T.white,
-                  border: `2px solid ${selectedRole === r.id ? r.color : T.border}`,
+                  border: `2px solid ${T.border}`,
                   borderRadius: 16,
                   padding: isMobile ? "22px" : "28px",
-                  cursor: "pointer",
+                  cursor: "default",
                   transition: "all .25s",
-                  boxShadow: selectedRole === r.id ? `0 8px 28px ${r.color}20` : T.shadow,
-                  transform: selectedRole === r.id ? "translateY(-2px)" : "none",
+                  boxShadow: T.shadow,
+                  transform: "none",
                   position: "relative",
                   overflow: "hidden",
                 }}
               >
-                {selectedRole === r.id && (
-                  <div style={{ position: "absolute", top: 14, right: 14, width: 24, height: 24, borderRadius: "50%", background: r.color, display: "flex", alignItems: "center", justifyContent: "center", color: "#fff", fontSize: 13, fontWeight: 800 }}>✓</div>
-                )}
                 <div style={{ fontSize: 40, marginBottom: 14 }}>{r.icon}</div>
                 <h3 style={{ fontSize: 20, fontWeight: 800, color: T.text, margin: "0 0 2px" }}>{r.title}</h3>
                 <div style={{ fontSize: 12, fontWeight: 600, color: r.color, marginBottom: 10 }}>{r.subtitle}</div>
@@ -231,25 +219,25 @@ export default function LoginPage() {
           <div style={{ textAlign: "center" }}>
             <button
               onClick={handleLogin}
-              disabled={!selectedRole || loading}
+              disabled={loading}
               style={{
-                background: selectedRole ? T.gradientRed : T.border,
-                color: selectedRole ? "#fff" : T.muted,
+                background: loading ? T.border : T.gradientRed,
+                color: loading ? T.muted : "#fff",
                 border: "none",
                 borderRadius: 12,
                 padding: "14px 48px",
                 fontSize: 15,
                 fontWeight: 700,
-                cursor: selectedRole ? "pointer" : "not-allowed",
+                cursor: loading ? "not-allowed" : "pointer",
                 transition: "all .2s",
-                boxShadow: selectedRole ? `0 6px 20px ${T.primary}33` : "none",
+                boxShadow: loading ? "none" : `0 6px 20px ${T.primary}33`,
                 minWidth: isMobile ? "100%" : 220,
               }}
             >
               {loading ? "Please wait…" : mode === "signin" ? "Sign In →" : "Create Account →"}
             </button>
             <div style={{ marginTop: 16, fontSize: 12, color: T.muted }}>
-              Admin portal access requires an admin account. Citizen pages require a signed-in user account.
+              Access is determined by the role stored in your account. Admin users get admin pages, citizens get user pages.
             </div>
           </div>
         </div>

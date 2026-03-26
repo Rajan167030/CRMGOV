@@ -8,6 +8,7 @@ import { authMiddleware } from "./middleware/auth.middleware.js";
 import {
   errorMiddleware,
   notFoundMiddleware,
+  requestLoggerMiddleware,
 } from "./middleware/error.middleware.js";
 
 const app = express();
@@ -18,9 +19,13 @@ app.use(
   })
 );
 app.use(express.json());
+app.use(requestLoggerMiddleware);
 
 app.get("/api/health", (_req, res) => {
   res.status(200).json({ status: "ok" });
+});
+app.get("/api/ready", (_req, res) => {
+  res.status(200).json({ status: "ready" });
 });
 
 app.use("/api/auth", authRoutes);

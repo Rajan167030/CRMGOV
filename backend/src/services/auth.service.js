@@ -23,6 +23,16 @@ const sanitizeUser = (user) => ({
   avatar: user.avatar,
 });
 
+const requireStringField = (value, label) => {
+  if (typeof value !== "string" || !value.trim()) {
+    const error = new Error(`${label} is required`);
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return value.trim();
+};
+
 const signToken = (user) => {
   const jwtSecret = process.env.JWT_SECRET;
 
@@ -88,13 +98,16 @@ export const registerUser = async ({
   phone,
   role = "user",
 }) => {
+  const normalizedName = requireStringField(name, "Name");
+  const normalizedEmail = requireStringField(email, "Email").toLowerCase();
+  const normalizedPassword = requireStringField(password, "Password");
+
   if (role === "admin") {
     const error = new Error("Admin accounts must be created by the system administrator");
     error.statusCode = 403;
     throw error;
   }
 
-  const normalizedEmail = email.trim().toLowerCase();
   const existingUser = await User.findOne({ email: normalizedEmail });
 
   if (existingUser) {
@@ -103,18 +116,36 @@ export const registerUser = async ({
     throw error;
   }
 
-  const passwordHash = await bcrypt.hash(password, 10);
+  if (normalizedPassword.length < 6) {
+    const error = new Error("Password must be at least 6 characters long");
+    error.statusCode = 400;
+    throw error;
+  }
 
-  const user = await User.create({
-    name: name.trim(),
-    email: normalizedEmail,
-    password: passwordHash,
-    role,
-    phone: phone?.trim() || "",
-    department: role === "admin" ? "All Departments" : null,
-    designation: role === "admin" ? "Government Officer" : "Citizen",
-    avatar: buildAvatar(name.trim()),
-  });
+  const passwordHash = await bcrypt.hash(normalizedPassword, 10);
+
+  let user;
+
+  try {
+    user = await User.create({
+      name: normalizedName,
+      email: normalizedEmail,
+      password: passwordHash,
+      role,
+      phone: typeof phone === "string" ? phone.trim() : "",
+      department: role === "admin" ? "All Departments" : null,
+      designation: role === "admin" ? "Government Officer" : "Citizen",
+      avatar: buildAvatar(normalizedName),
+    });
+  } catch (createError) {
+    if (createError?.code === 11000) {
+      const error = new Error("A user with this email already exists");
+      error.statusCode = 409;
+      throw error;
+    }
+
+    throw createError;
+  }
 
   return {
     token: signToken(user),
@@ -122,8 +153,9 @@ export const registerUser = async ({
   };
 };
 
-export const loginUser = async ({ email, password, role }) => {
-  const normalizedEmail = email.trim().toLowerCase();
+export const loginUser = async ({ email, password }) => {
+  const normalizedEmail = requireStringField(email, "Email").toLowerCase();
+  const normalizedPassword = requireStringField(password, "Password");
   const user = await User.findOne({ email: normalizedEmail });
 
   if (!user) {
@@ -132,17 +164,11 @@ export const loginUser = async ({ email, password, role }) => {
     throw error;
   }
 
-  const passwordMatches = await bcrypt.compare(password, user.password);
+  const passwordMatches = await bcrypt.compare(normalizedPassword, user.password);
 
   if (!passwordMatches) {
     const error = new Error("Invalid email or password");
     error.statusCode = 401;
-    throw error;
-  }
-
-  if (role && user.role !== role) {
-    const error = new Error("This account does not have access to the selected portal");
-    error.statusCode = 403;
     throw error;
   }
 

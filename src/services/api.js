@@ -11,55 +11,113 @@ const buildHeaders = () => {
   };
 };
 
-const parseJsonResponse = async (response) => {
-  const data = await response.json().catch(() => ({}));
+const extractErrorMessage = async (response) => {
+  const contentType = response.headers.get("content-type") || "";
 
-  if (!response.ok) {
-    throw new Error(data.message || "Request failed");
+  if (contentType.includes("application/json")) {
+    const data = await response.json().catch(() => ({}));
+
+    if (typeof data.message === "string" && data.message.trim()) {
+      return data.message;
+    }
+
+    if (typeof data.error === "string" && data.error.trim()) {
+      return data.error;
+    }
+
+    if (Array.isArray(data.errors) && data.errors.length > 0) {
+      const firstError = data.errors[0];
+
+      if (typeof firstError === "string") {
+        return firstError;
+      }
+
+      if (typeof firstError?.message === "string") {
+        return firstError.message;
+      }
+    }
+
+    return "Request failed";
   }
 
-  return data;
+  const text = await response.text().catch(() => "");
+  return text.trim() || "Request failed";
 };
 
-export const loginRequest = async ({ email, password, role }) => {
-  const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
-    method: "POST",
-    headers: buildHeaders(),
-    body: JSON.stringify({ email, password, role }),
-  });
+const parseJsonResponse = async (response) => {
+  if (!response.ok) {
+    const message = await extractErrorMessage(response);
+    const error = new Error(message);
+    error.status = response.status;
+    console.error("API request failed", {
+      status: response.status,
+      statusText: response.statusText,
+      message,
+      url: response.url,
+    });
+    throw error;
+  }
 
-  return parseJsonResponse(response);
+  return response.json().catch(() => ({}));
 };
 
-export const registerRequest = async ({ name, email, password, phone, role }) => {
-  const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
+const apiRequest = async (path, options = {}) => {
+  try {
+    const response = await fetch(`${API_BASE_URL}${path}`, options);
+    return await parseJsonResponse(response);
+  } catch (error) {
+    if (error instanceof TypeError) {
+      const networkError = new Error(
+        "Unable to reach the backend. Check that the frontend proxy and backend server are running."
+      );
+      networkError.cause = error;
+      console.error("Network request failed", {
+        path,
+        message: error.message,
+      });
+      throw networkError;
+    }
+
+    console.error("Unhandled API error", {
+      path,
+      message: error.message,
+      status: error.status,
+    });
+    throw error;
+  }
+};
+
+export const loginRequest = async ({ email, password }) => {
+  return apiRequest("/api/auth/login", {
     method: "POST",
     headers: buildHeaders(),
-    body: JSON.stringify({ name, email, password, phone, role }),
+    body: JSON.stringify({ email, password }),
   });
+};
 
-  return parseJsonResponse(response);
+export const registerRequest = async ({ name, email, password, phone }) => {
+  return apiRequest("/api/auth/register", {
+    method: "POST",
+    headers: buildHeaders(),
+    body: JSON.stringify({ name, email, password, phone }),
+  });
 };
 
 export const fetchCurrentUser = async () => {
-  const response = await fetch(`${API_BASE_URL}/api/auth/me`, {
+  return apiRequest("/api/auth/me", {
     headers: buildHeaders(),
   });
-
-  return parseJsonResponse(response);
 };
 
 export const createChatSession = async () => {
-  const response = await fetch(`${API_BASE_URL}/api/chat/session`, {
+  return apiRequest("/api/chat/session", {
     method: "POST",
     headers: buildHeaders(),
   });
-
-  return parseJsonResponse(response);
 };
 
 export const sendChatMessage = async ({ sessionId, message }) => {
-  const response = await fetch(`${API_BASE_URL}/api/chat/message`, {
+  return apiRequest("/api/chat/message", {
     method: "POST",
     headers: buildHeaders(),
     body: JSON.stringify({
@@ -67,22 +125,16 @@ export const sendChatMessage = async ({ sessionId, message }) => {
       message,
     }),
   });
-
-  return parseJsonResponse(response);
 };
 
 export const fetchComplaints = async () => {
-  const response = await fetch(`${API_BASE_URL}/api/complaints`, {
+  return apiRequest("/api/complaints", {
     headers: buildHeaders(),
   });
-
-  return parseJsonResponse(response);
 };
 
 export const fetchComplaintById = async ({ complaintId }) => {
-  const response = await fetch(`${API_BASE_URL}/api/complaints/${complaintId}`, {
+  return apiRequest(`/api/complaints/${complaintId}`, {
     headers: buildHeaders(),
   });
-
-  return parseJsonResponse(response);
 };

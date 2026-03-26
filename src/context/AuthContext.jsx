@@ -37,15 +37,15 @@ export function AuthProvider({ children }) {
     bootstrapAuth();
   }, []);
 
-  const login = async ({ email, password, role }) => {
-    const response = await loginRequest({ email, password, role });
+  const login = async ({ email, password }) => {
+    const response = await loginRequest({ email, password });
     localStorage.setItem(TOKEN_KEY, response.token);
     setUser(response.user);
     return response.user;
   };
 
-  const register = async ({ name, email, password, phone, role }) => {
-    const response = await registerRequest({ name, email, password, phone, role });
+  const register = async ({ name, email, password, phone }) => {
+    const response = await registerRequest({ name, email, password, phone });
     localStorage.setItem(TOKEN_KEY, response.token);
     setUser(response.user);
     return response.user;
