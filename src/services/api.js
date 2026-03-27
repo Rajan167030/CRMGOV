@@ -1,5 +1,6 @@
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 const AI_BASE_URL = import.meta.env.VITE_AI_BASE_URL || "http://localhost:8000";
+const AI_TIMEOUT_MS = 30000; // 30 seconds
 
 const getToken = () => localStorage.getItem("ps_crm_token");
 
@@ -59,7 +60,18 @@ const parseJsonResponse = async (response) => {
     throw error;
   }
 
-  return response.json().catch(() => ({}));
+  try {
+    return await response.json();
+  } catch (error) {
+    const errorInfo = {
+      url: response.url,
+      status: response.status,
+      contentType: response.headers.get("content-type"),
+      parseError: error.message,
+    };
+    console.error("Failed to parse JSON response", errorInfo);
+    return {}; // Return safe empty object as fallback
+  }
 };
 
 const apiRequest = async (path, options = {}) => {
@@ -130,16 +142,34 @@ export const sendChatMessage = async ({ sessionId, message }) => {
 
 const aiRequest = async (path, body) => {
   try {
-    const response = await fetch(`${AI_BASE_URL}${path}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
 
-    return await parseJsonResponse(response);
+    try {
+      const response = await fetch(`${AI_BASE_URL}${path}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      return await parseJsonResponse(response);
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
+    }
   } catch (error) {
+    if (error.name === "AbortError") {
+      const timeoutError = new Error(
+        "AI service request timed out. Please try again."
+      );
+      timeoutError.cause = error;
+      throw timeoutError;
+    }
+
     if (error instanceof TypeError) {
       const networkError = new Error(
         "Unable to reach the grievance model on localhost:8000."

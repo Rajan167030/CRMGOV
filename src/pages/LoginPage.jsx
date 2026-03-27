@@ -204,7 +204,7 @@ export default function LoginPage() {
               />
             </div>
             {error && <div style={{ color: T.red, fontSize: 13, fontWeight: 600, marginTop: 12 }}>{error}</div>}
-            {mode === "signin" && (
+            {mode === "signin" && process.env.NODE_ENV !== "production" && (
               <div style={{ color: T.sub, fontSize: 12, marginTop: 12 }}>
                 Seeded accounts: admin `admin@pscrm.gov.in` / `Admin@123`, user `rajesh.kumar@gmail.com` / `User@123`
               </div>

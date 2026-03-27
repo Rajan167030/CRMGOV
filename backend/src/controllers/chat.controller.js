@@ -17,6 +17,19 @@ export const postMessageController = async (req, res, next) => {
   try {
     const { sessionId, message } = req.body;
 
+    // Validate required inputs
+    if (!sessionId || typeof sessionId !== "string" || !sessionId.trim()) {
+      return res.status(400).json({
+        message: "sessionId is required and must be a non-empty string",
+      });
+    }
+
+    if (!message || typeof message !== "string" || !message.trim()) {
+      return res.status(400).json({
+        message: "message is required and must be a non-empty string",
+      });
+    }
+
     const result = await processMessage(sessionId, message);
 
     res.status(200).json(result);

@@ -1,6 +1,8 @@
 from typing import Dict, List, Literal
+import os
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 
@@ -21,6 +23,26 @@ class ChatResponse(BaseModel):
 
 
 app = FastAPI(title="Dummy AI Chat Service")
+
+# Configure CORS with allowed origins from environment
+def get_allowed_origins():
+    """Parse ALLOWED_ORIGINS env var or use defaults"""
+    origins_env = os.getenv("ALLOWED_ORIGINS", "")
+    if origins_env:
+        return [origin.strip() for origin in origins_env.split(",") if origin.strip()]
+    # Default for development
+    return ["http://localhost:5173", "http://localhost:3000", "http://localhost:6000"]
+
+
+allowed_origins = get_allowed_origins()
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=allowed_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 DEPARTMENT_KEYWORDS = {
     "Water": ["water", "pipeline", "leak", "tap", "drainage"],
@@ -130,3 +152,21 @@ def chat(request: ChatRequest):
         "I am submitting it now."
     )
     return ChatResponse(reply=summary, state_update=state_update, done=True)
+
+
+@app.post("/api/complaint", response_model=ChatResponse)
+def complaint(request: dict):
+    text = request.get("text", "")
+    messages = [{"role": "user", "content": text}]
+    state = {}
+    chat_req = ChatRequest(messages=messages, state=state)
+    return chat(chat_req)
+
+
+@app.post("/api/reply", response_model=ChatResponse)
+def reply(request: dict):
+    return ChatResponse(
+        reply="Message received. Please provide more details or confirm the complaint.",
+        state_update={},
+        done=False,
+    )

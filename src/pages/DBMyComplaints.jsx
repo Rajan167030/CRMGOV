@@ -78,9 +78,9 @@ function DBMyComplaints() {
         <div style={{ color: T.text, fontWeight: 800, fontSize: 18, fontFamily: "'Poppins',sans-serif", marginBottom: 24 }}>Official Timeline</div>
         {[
           { time: formatDate(selected.createdAt), action: "Complaint Received", note: "Your complaint was successfully registered", col: T.primary },
-          { time: formatDate(selected.updatedAt), action: "Under Review", note: `Assigned to ${selected.department} department for verification`, col: T.accent },
-          { time: formatDate(selected.updatedAt), action: "Investigating", note: "An officer has been assigned to investigate", col: T.amber },
-          ...(selected.status === "Resolved" ? [{ time: "Mar 08, 15:00", action: "Resolved", note: "Issue has been marked as resolved", col: T.green }] : []),
+          { time: formatDate(selected.assignedAt || selected.underReviewAt || selected.updatedAt), action: "Under Review", note: `Assigned to ${selected.department} department for verification`, col: T.accent },
+          { time: formatDate(selected.investigatingAt || selected.underReviewAt || selected.updatedAt), action: "Investigating", note: "An officer has been assigned to investigate", col: T.amber },
+          ...(selected.status === "Resolved" ? [{ time: formatDate(selected.resolvedAt || selected.updatedAt), action: "Resolved", note: "Issue has been marked as resolved", col: T.green }] : []),
         ].map((t, i, arr) => (
           <div key={i} style={{ display: "flex", gap: 20, paddingBottom: 24 }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>

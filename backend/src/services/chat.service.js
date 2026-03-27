@@ -177,9 +177,10 @@ export const processMessage = async (sessionId, message) => {
   let ticket;
 
   if (aiResponse.done === true) {
-    // Don't create a duplicate if this session already has a complaint
-    if (session.state?.complaintId) {
-      complaintId = session.state.complaintId;
+    // Check if complaint already exists (could be set by concurrent request)
+    const currentSession = await Session.findById(session._id);
+    if (currentSession?.state?.complaintId) {
+      complaintId = currentSession.state.complaintId;
       ticket = toTicketPayload(await getComplaintByMongoId(complaintId));
     } else {
       const validation = validateComplaintFields(session.state);
@@ -210,20 +211,42 @@ export const processMessage = async (sessionId, message) => {
         state: session.state,
       });
 
-      complaintId = complaint._id.toString();
-      ticket = toTicketPayload(complaint);
-    }
+      const newComplaintId = complaint._id.toString();
 
-    // Mark session as completed
-    session.state = {
-      ...session.state,
-      complaintId,
-      completed: true,
-    };
+      // Atomically set complaintId and completed only if not already set by another request
+      const updated = await Session.findOneAndUpdate(
+        {
+          _id: session._id,
+          "state.complaintId": { $exists: false },
+        },
+        {
+          $set: {
+            "state.complaintId": newComplaintId,
+            "state.completed": true,
+            messages: session.messages,
+          },
+        },
+        { returnDocument: "after" }
+      );
+
+      if (updated) {
+        // We successfully set the complaintId - use our newly created complaint
+        complaintId = newComplaintId;
+        ticket = toTicketPayload(complaint);
+      } else {
+        // Another request already set complaintId - reload and use the existing complaint
+        const reloadedSession = await Session.findById(session._id);
+        complaintId = reloadedSession.state.complaintId;
+        ticket = toTicketPayload(await getComplaintByMongoId(complaintId));
+      }
+    }
   }
 
   // ── Step 8: Save session and return response ──────────────────
-  await session.save();
+  // Save the session to persist messages if not already atomic-saved
+  if (!aiResponse.done) {
+    await session.save();
+  }
 
   return {
     reply: aiResponse.reply.trim(),

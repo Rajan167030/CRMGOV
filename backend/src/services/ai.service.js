@@ -68,16 +68,24 @@ const createGatewayError = (message) => {
 /**
  * Create an AbortSignal that times out after AI_TIMEOUT_MS.
  * Falls back to a manual AbortController for older Node versions.
+ * Returns an object with signal and clear fn to cancel the timeout.
  */
 const createTimeoutSignal = () => {
   if (typeof AbortSignal.timeout === "function") {
-    return AbortSignal.timeout(AI_TIMEOUT_MS);
+    return {
+      signal: AbortSignal.timeout(AI_TIMEOUT_MS),
+      clear: () => {}, // AbortSignal.timeout handles cleanup automatically
+    };
   }
 
   // Fallback for Node < 17.3
   const controller = new AbortController();
-  setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
-  return controller.signal;
+  const timeoutId = setTimeout(() => controller.abort(), AI_TIMEOUT_MS);
+
+  return {
+    signal: controller.signal,
+    clear: () => clearTimeout(timeoutId),
+  };
 };
 
 // ── Response validation ─────────────────────────────────────────
@@ -316,18 +324,21 @@ const mapGrievanceToChatResponse = (data) => {
 // ═══════════════════════════════════════════════════════════════
 
 const sendToLegacyChatService = async ({ messages, state, legacyChatUrl }) => {
+  const timeoutHandle = createTimeoutSignal();
   let response;
+
   try {
     response = await fetch(legacyChatUrl, {
       method: "POST",
       headers: buildJsonHeaders(),
-      signal: createTimeoutSignal(),
+      signal: timeoutHandle.signal,
       body: JSON.stringify({
         messages,
         state,
       }),
     });
   } catch (fetchError) {
+    timeoutHandle.clear();
     // Handle timeout and network errors
     if (fetchError.name === "TimeoutError" || fetchError.name === "AbortError") {
       throw createGatewayError(
@@ -340,6 +351,7 @@ const sendToLegacyChatService = async ({ messages, state, legacyChatUrl }) => {
   }
 
   if (!response.ok) {
+    timeoutHandle.clear();
     const error = createGatewayError(
       `FastAPI /chat request failed with status ${response.status}`
     );
@@ -347,7 +359,9 @@ const sendToLegacyChatService = async ({ messages, state, legacyChatUrl }) => {
     throw error;
   }
 
-  return assertLegacyChatResponse(await response.json());
+  const result = assertLegacyChatResponse(await response.json());
+  timeoutHandle.clear();
+  return result;
 };
 
 const sendToGrievanceService = async ({
@@ -374,15 +388,18 @@ const sendToGrievanceService = async ({
         text: message,
       };
 
+  const timeoutHandle = createTimeoutSignal();
   let response;
+
   try {
     response = await fetch(url, {
       method: "POST",
       headers: buildJsonHeaders(),
-      signal: createTimeoutSignal(),
+      signal: timeoutHandle.signal,
       body: JSON.stringify(body),
     });
   } catch (fetchError) {
+    timeoutHandle.clear();
     // Handle timeout and network errors
     if (fetchError.name === "TimeoutError" || fetchError.name === "AbortError") {
       throw createGatewayError(
@@ -395,12 +412,17 @@ const sendToGrievanceService = async ({
   }
 
   if (!response.ok) {
-    throw createGatewayError(
+    timeoutHandle.clear();
+    const error = createGatewayError(
       `Grievance AI request failed with status ${response.status}`
     );
+    error.upstreamStatus = response.status;
+    throw error;
   }
 
-  return mapGrievanceToChatResponse(await response.json());
+  const result = mapGrievanceToChatResponse(await response.json());
+  timeoutHandle.clear();
+  return result;
 };
 
 // ═══════════════════════════════════════════════════════════════

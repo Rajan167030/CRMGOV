@@ -52,6 +52,26 @@ const signToken = (user) => {
 };
 
 export const seedDefaultUsers = async () => {
+  const nodeEnv = process.env.NODE_ENV || "development";
+
+  // In production, require env vars or skip seeding
+  if (nodeEnv === "production") {
+    const requiredEnvVars = [
+      "DEFAULT_ADMIN_EMAIL",
+      "DEFAULT_ADMIN_PASSWORD",
+      "DEFAULT_USER_EMAIL",
+      "DEFAULT_USER_PASSWORD",
+    ];
+    const missing = requiredEnvVars.filter((v) => !process.env[v]);
+
+    if (missing.length > 0) {
+      console.warn(
+        `Seeding skipped in production: missing environment variables: ${missing.join(", ")}`
+      );
+      return;
+    }
+  }
+
   const defaults = [
     {
       email: process.env.DEFAULT_ADMIN_EMAIL || "admin@pscrm.gov.in",
