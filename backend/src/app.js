@@ -4,6 +4,7 @@ import express from "express";
 import authRoutes from "./routes/auth.routes.js";
 import chatRoutes from "./routes/chat.routes.js";
 import complaintRoutes from "./routes/complaint.routes.js";
+import mapStatsRoutes from "./routes/mapStats.routes.js";
 import { authMiddleware } from "./middleware/auth.middleware.js";
 import {
   errorMiddleware,
@@ -48,6 +49,9 @@ app.get("/api/ready", (_req, res) => {
 });
 
 app.use("/api/auth", authRoutes);
+
+// Public endpoints (no auth) — consumed by landing page
+app.use("/api/map-stats", mapStatsRoutes);
 
 // All protected application routes go through the Node backend only.
 app.use("/api/chat", authMiddleware, chatRoutes);
