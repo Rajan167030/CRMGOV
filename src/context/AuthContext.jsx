@@ -1,60 +1,76 @@
-import { createContext, useContext, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import {
+  fetchCurrentUser,
+  loginRequest,
+  registerRequest,
+} from "../services/api";
 
 /* ═══════════════════════════════════════════════════════════════
-   AUTH CONTEXT  —  Admin / User role switching
-   In a real app this would connect to a backend auth system.
-   For now it provides mock login/logout and role switching.
+   AUTH CONTEXT  —  JWT-backed auth state
 ═══════════════════════════════════════════════════════════════ */
 const AuthContext = createContext(null);
-
-const MOCK_USERS = {
-  admin: {
-    id: "GOV-ADM-0001",
-    name: "Admin Central",
-    email: "admin@pscrm.gov.in",
-    phone: "+91 98765 00000",
-    role: "admin",
-    avatar: "AC",
-    department: "All Departments",
-    designation: "Superadmin",
-  },
-  user: {
-    id: "CIT-USR-4521",
-    name: "Rajesh Kumar",
-    email: "rajesh.kumar@gmail.com",
-    phone: "+91 98765 43210",
-    role: "user",
-    avatar: "RK",
-    department: null,
-    designation: "Citizen",
-  },
-};
-
+const TOKEN_KEY = "ps_crm_token";
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
-  const [role, setRole] = useState(null); // 'admin' | 'user'
+  const [isBootstrapping, setIsBootstrapping] = useState(true);
 
-  const login = (selectedRole) => {
-    const mockUser = MOCK_USERS[selectedRole];
-    setUser(mockUser);
-    setRole(selectedRole);
+  useEffect(() => {
+    const bootstrapAuth = async () => {
+      const token = localStorage.getItem(TOKEN_KEY);
+
+      if (!token) {
+        setIsBootstrapping(false);
+        return;
+      }
+
+      try {
+        const response = await fetchCurrentUser();
+        setUser(response.user);
+      } catch {
+        localStorage.removeItem(TOKEN_KEY);
+        setUser(null);
+      } finally {
+        setIsBootstrapping(false);
+      }
+    };
+
+    bootstrapAuth();
+  }, []);
+
+  const login = async ({ email, password }) => {
+    const response = await loginRequest({ email, password });
+    localStorage.setItem(TOKEN_KEY, response.token);
+    setUser(response.user);
+    return response.user;
+  };
+
+  const register = async ({ name, email, password, phone }) => {
+    const response = await registerRequest({ name, email, password, phone });
+    localStorage.setItem(TOKEN_KEY, response.token);
+    setUser(response.user);
+    return response.user;
   };
 
   const logout = () => {
+    localStorage.removeItem(TOKEN_KEY);
     setUser(null);
-    setRole(null);
   };
 
-  const switchRole = () => {
-    const newRole = role === "admin" ? "user" : "admin";
-    login(newRole);
-  };
-
-  return (
-    <AuthContext.Provider value={{ user, role, login, logout, switchRole, isAdmin: role === "admin" }}>
-      {children}
-    </AuthContext.Provider>
+  const value = useMemo(
+    () => ({
+      user,
+      role: user?.role || null,
+      login,
+      register,
+      logout,
+      isAdmin: user?.role === "admin",
+      isAuthenticated: Boolean(user),
+      isBootstrapping,
+    }),
+    [user, isBootstrapping]
   );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
 export function useAuth() {

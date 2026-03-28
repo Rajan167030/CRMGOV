@@ -1,187 +1,1182 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import T from "../constants/tokens";
-import { DEPTS } from "../data/mockData";
 import useIsMobile from "../hooks/useIsMobile";
-import { useAuth } from "../context/AuthContext";
+import {
+  continueModelComplaintChat,
+  saveComplaintRequest,
+  startModelComplaintChat,
+} from "../services/api";
+import {
+  AUTO_LANGUAGE,
+  DEFAULT_LANGUAGE,
+  LANGUAGE_OPTIONS,
+  buildLocalizedAssistantReply,
+  detectLanguage,
+  extractModelLocation,
+  extractModelTicketId,
+  getCommonVoiceCopy,
+  getSpeechRecognitionConstructor,
+  getVoiceSupport,
+  getVoiceTuning,
+  getVoiceUiCopy,
+  pickBestSpeechVoice,
+  resolveLanguage,
+} from "../utils/voiceChat";
+
+const resolveBrowserLanguage = () => {
+  if (typeof navigator === "undefined") {
+    return DEFAULT_LANGUAGE;
+  }
+
+  const preferredLocales = [...(navigator.languages || []), navigator.language]
+    .filter(Boolean)
+    .map((locale) => locale.toLowerCase());
+
+  for (const locale of preferredLocales) {
+    const matchedOption = LANGUAGE_OPTIONS.find((option) => {
+      if (option.value === AUTO_LANGUAGE) {
+        return false;
+      }
+
+      const prefix = option.value.toLowerCase().split("-")[0];
+      return locale === option.value.toLowerCase() || locale.startsWith(prefix);
+    });
+
+    if (matchedOption) {
+      return matchedOption.value;
+    }
+  }
+
+  return DEFAULT_LANGUAGE;
+};
+
+const checkMicrophoneAvailability = async () => {
+  if (
+    typeof navigator === "undefined" ||
+    !navigator.mediaDevices?.getUserMedia
+  ) {
+    return {
+      ok: false,
+      reason: "unsupported",
+    };
+  }
+
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach((track) => track.stop());
+    return { ok: true };
+  } catch (error) {
+    if (error?.name === "NotAllowedError" || error?.name === "SecurityError") {
+      return { ok: false, reason: "permission-denied" };
+    }
+
+    if (error?.name === "NotFoundError" || error?.name === "DevicesNotFoundError") {
+      return { ok: false, reason: "no-device" };
+    }
+
+    if (error?.name === "NotReadableError" || error?.name === "TrackStartError") {
+      return { ok: false, reason: "device-busy" };
+    }
+
+    return {
+      ok: false,
+      reason: "unknown",
+      error,
+    };
+  }
+};
 
 function DBFile() {
   const isMobile = useIsMobile(768);
-  const { user } = useAuth();
-  const [step, setStep] = useState(1);
-  const [done, setDone] = useState(false);
-  
-  // Need state for validation
-  const [fd, setFd] = useState({ 
-    n: user?.name || "", 
-    p: user?.phone || "", 
-    d: "", 
-    l: "", 
-    desc: "" 
-  });
-  
-  const [err, setErr] = useState({});
+  const [modelSessionId, setModelSessionId] = useState(null);
+  const [input, setInput] = useState("");
+  const [selectedLanguage, setSelectedLanguage] = useState(AUTO_LANGUAGE);
+  const [activeLanguage, setActiveLanguage] = useState(DEFAULT_LANGUAGE);
+  const [messages, setMessages] = useState([
+    {
+      role: "assistant",
+      content: getVoiceUiCopy(DEFAULT_LANGUAGE).assistantMessage,
+    },
+  ]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isListening, setIsListening] = useState(false);
+  const [voiceRepliesEnabled, setVoiceRepliesEnabled] = useState(true);
+  const [error, setError] = useState("");
+  const [complaintId, setComplaintId] = useState("");
+  const [ticket, setTicket] = useState(null);
+  const [savedTicketId, setSavedTicketId] = useState("");
+  const [availableVoices, setAvailableVoices] = useState([]);
+  const listRef = useRef(null);
+  const recognitionRef = useRef(null);
+  const pendingVoiceSubmitRef = useRef("");
+  const messagesRef = useRef(messages);
+  const modelSessionIdRef = useRef(modelSessionId);
+  const savedTicketIdRef = useRef(savedTicketId);
+  const voiceSupport = getVoiceSupport();
+  const commonVoiceCopy = getCommonVoiceCopy();
+  const uiLanguage =
+    selectedLanguage === AUTO_LANGUAGE ? activeLanguage : selectedLanguage;
+  const uiCopy = getVoiceUiCopy(uiLanguage);
 
-  const validate1 = () => {
-    let e = {};
-    if (!fd.n.trim()) e.n = "Name is required";
-    if (!fd.p.trim()) e.p = "Phone is required";
-    else if (!/^\+?[\d\s-]{10,}$/.test(fd.p)) e.p = "Invalid phone format";
-    setErr(e);
-    if (Object.keys(e).length === 0) setStep(2);
-  };
+  useEffect(() => {
+    messagesRef.current = messages;
+  }, [messages]);
 
-  const validate2 = () => {
-    let e = {};
-    if (!fd.d) e.d = "Select a department";
-    if (!fd.l.trim()) e.l = "Location is required";
-    if (!fd.desc.trim()) e.desc = "Description is required";
-    else if (fd.desc.length < 10) e.desc = "Provide more details (min 10 chars)";
-    setErr(e);
-    if (Object.keys(e).length === 0) setStep(3);
-  };
+  useEffect(() => {
+    modelSessionIdRef.current = modelSessionId;
+  }, [modelSessionId]);
 
-  const submit = () => {
-    setTimeout(() => setDone(true), 600);
-  };
+  useEffect(() => {
+    savedTicketIdRef.current = savedTicketId;
+  }, [savedTicketId]);
 
-  const steps = [
-    { n: 1, title: "Citizen Info", desc: "Your contact details" },
-    { n: 2, title: "Complaint Details", desc: "Location & issue" },
-    { n: 3, title: "Review", desc: "Confirm submission" }
-  ];
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      listRef.current?.scrollTo({
+        top: listRef.current.scrollHeight,
+        behavior: "smooth",
+      });
+    });
+  }, [messages, isSubmitting]);
 
-  const inputStyle = (errField) => ({
-    width: "100%", padding: "14px 16px", background: T.white, 
-    border: `1px solid ${err[errField] ? T.red : T.border}`,
-    borderRadius: 12, color: T.text, fontSize: 15, outline: "none",
-    boxShadow: "inset 0 1px 4px rgba(0,0,0,0.02)",
-    transition: "border .2s"
-  });
+  useEffect(() => {
+    if (!voiceRepliesEnabled && voiceSupport.synthesis) {
+      window.speechSynthesis.cancel();
+    }
+  }, [voiceRepliesEnabled, voiceSupport.synthesis]);
+
+  useEffect(() => {
+    if (!voiceSupport.synthesis) {
+      return undefined;
+    }
+
+    const loadVoices = () => {
+      setAvailableVoices(window.speechSynthesis.getVoices());
+    };
+
+    loadVoices();
+    window.speechSynthesis.onvoiceschanged = loadVoices;
+
+    return () => {
+      window.speechSynthesis.onvoiceschanged = null;
+    };
+  }, [voiceSupport.synthesis]);
+
+  useEffect(() => {
+    if (
+      messages.length === 1 &&
+      messages[0]?.role === "assistant" &&
+      messages[0]?.content !== uiCopy.assistantMessage &&
+      !modelSessionId &&
+      !ticket &&
+      !complaintId &&
+      !input
+    ) {
+      setMessages([{ role: "assistant", content: uiCopy.assistantMessage }]);
+    }
+  }, [uiCopy.assistantMessage, messages, modelSessionId, ticket, complaintId, input]);
+
+  useEffect(
+    () => () => {
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
+
+      if (voiceSupport.synthesis) {
+        window.speechSynthesis.cancel();
+      }
+    },
+    [voiceSupport.synthesis]
+  );
 
   const btnStyle = {
-    background: T.gradientRed, color: "#fff", border: "none", borderRadius: 12, 
-    padding: "14px 32px", fontSize: 15, fontWeight: 700, cursor: "pointer", 
-    transition: "all .2s", boxShadow: `0 6px 20px ${T.primary}33`
+    background: T.gradientRed,
+    color: "#fff",
+    border: "none",
+    borderRadius: 12,
+    padding: "14px 24px",
+    fontSize: 15,
+    fontWeight: 700,
+    cursor: "pointer",
+    transition: "all .2s",
+    boxShadow: `0 6px 20px ${T.primary}33`,
+  };
+
+  const pillButtonStyle = {
+    borderRadius: 999,
+    border: `1px solid ${T.border}`,
+    background: T.white,
+    color: T.text,
+    padding: "10px 14px",
+    fontSize: 13,
+    fontWeight: 700,
+    cursor: "pointer",
   };
 
   const p = isMobile ? "16px" : "28px 34px";
 
-  if (done) return (
-    <div style={{ padding: p, display: "flex", alignItems: "center", justifyContent: "center", minHeight: "80vh" }}>
-      <div style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: 24, padding: isMobile ? "32px 24px" : "48px 56px", textAlign: "center", maxWidth: 460, boxShadow: T.shadowLg }}>
-        <div style={{ width: 80, height: 80, borderRadius: "50%", background: T.greenBg, color: T.green, fontSize: 40, display: "flex", alignItems: "center", justifyContent: "center", margin: "0 auto 24px" }}>✓</div>
-        <h2 style={{ color: T.text, fontSize: 24, fontWeight: 900, margin: "0 0 12px", fontFamily: "'Poppins',sans-serif" }}>Complaint Filed</h2>
-        <p style={{ color: T.textSecondary, fontSize: 15, margin: "0 0 24px", lineHeight: 1.6 }}>Your complaint has been registered successfully. The assigned department will be notified immediately.</p>
-        <div style={{ background: T.bg, padding: "16px", borderRadius: 12, marginBottom: 32, border: `1px solid ${T.borderLight}` }}>
-          <div style={{ color: T.sub, fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Tracking ID</div>
-          <div style={{ color: T.primary, fontSize: 28, fontWeight: 900, fontFamily: "monospace", letterSpacing: 2 }}>{`CMP-26-${Math.floor(100+Math.random()*900)}`}</div>
-        </div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <Link to="/dashboard/my-complaints" style={btnStyle}>Track Status</Link>
-          <button onClick={() => { setStep(1); setDone(false); setFd({n:user?.name||"", p:user?.phone||"", d:"", l:"", desc:""}); }} style={{ ...btnStyle, background: T.white, color: T.text, border: `1px solid ${T.border}`, boxShadow: "none" }}>File Another</button>
-        </div>
-      </div>
-    </div>
-  );
+  const stopSpeaking = () => {
+    if (voiceSupport.synthesis) {
+      window.speechSynthesis.cancel();
+    }
+  };
+
+  const speakAssistantReply = (text, language) => {
+    if (
+      !voiceRepliesEnabled ||
+      !voiceSupport.synthesis ||
+      typeof text !== "string" ||
+      !text.trim()
+    ) {
+      return;
+    }
+
+    stopSpeaking();
+
+    const utterance = new SpeechSynthesisUtterance(text.trim());
+    utterance.lang = language || DEFAULT_LANGUAGE;
+    const tuning = getVoiceTuning(utterance.lang);
+    const voice = pickBestSpeechVoice(availableVoices, utterance.lang);
+
+    if (voice) {
+      utterance.voice = voice;
+      utterance.lang = voice.lang;
+    }
+
+    utterance.rate = tuning.rate;
+    utterance.pitch = tuning.pitch;
+    utterance.volume = tuning.volume;
+
+    window.speechSynthesis.speak(utterance);
+  };
+
+  const resetConversation = () => {
+    pendingVoiceSubmitRef.current = "";
+
+    if (recognitionRef.current) {
+      recognitionRef.current.abort();
+      recognitionRef.current = null;
+    }
+
+    stopSpeaking();
+    setIsListening(false);
+    setModelSessionId(null);
+    setInput("");
+    setComplaintId("");
+    setTicket(null);
+    setSavedTicketId("");
+    setError("");
+    setMessages([
+      {
+        role: "assistant",
+        content: uiCopy.assistantMessage,
+      },
+    ]);
+  };
+
+  const submitMessage = async (overrideMessage) => {
+    const sourceMessage =
+      typeof overrideMessage === "string" ? overrideMessage : input;
+    const trimmedMessage = sourceMessage.trim();
+
+    if (!trimmedMessage || isSubmitting) {
+      return;
+    }
+
+    const resolvedLanguage = resolveLanguage(selectedLanguage, trimmedMessage);
+    const previousMessages = messagesRef.current;
+    const nextMessages = [
+      ...previousMessages,
+      { role: "user", content: trimmedMessage },
+    ];
+
+    setActiveLanguage(resolvedLanguage);
+    setError("");
+    setIsSubmitting(true);
+    setMessages(nextMessages);
+    setInput("");
+
+    try {
+      const response = modelSessionIdRef.current
+        ? await continueModelComplaintChat({
+            sessionId: modelSessionIdRef.current,
+            text: trimmedMessage,
+            conversationHistory: nextMessages.map((message) => ({
+              role: message.role,
+              content: message.content,
+            })),
+          })
+        : await startModelComplaintChat({
+            text: trimmedMessage,
+          });
+
+      if (response?.session_id) {
+        setModelSessionId(response.session_id);
+      }
+
+      const assistantReply = buildLocalizedAssistantReply(
+        response,
+        resolvedLanguage
+      );
+
+      setMessages((currentMessages) => [
+        ...currentMessages,
+        { role: "assistant", content: assistantReply },
+      ]);
+
+      speakAssistantReply(assistantReply, resolvedLanguage);
+
+      const ticketId = extractModelTicketId(response);
+      if (ticketId && ticketId !== savedTicketIdRef.current) {
+        const complaintPayload = {
+          complaint: response?.slots?.DESCRIPTION?.trim() || trimmedMessage,
+          department: response?.department || "General",
+          location: extractModelLocation(response),
+          priority: "Medium",
+          ticketId,
+        };
+
+        const savedComplaint = await saveComplaintRequest(complaintPayload);
+        const complaintRecord = savedComplaint.complaint;
+
+        setSavedTicketId(ticketId);
+        setComplaintId(complaintRecord.ticketId || complaintRecord._id);
+        setTicket(complaintRecord);
+      }
+    } catch (requestError) {
+      setMessages(previousMessages);
+      setError(requestError.message || "Unable to process your message");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const stopListening = () => {
+    pendingVoiceSubmitRef.current = "";
+
+    if (recognitionRef.current) {
+      recognitionRef.current.onend = () => {
+        recognitionRef.current = null;
+        setIsListening(false);
+      };
+      recognitionRef.current.stop();
+      recognitionRef.current = null;
+    }
+
+    setIsListening(false);
+  };
+
+  const startListening = async () => {
+    if (!voiceSupport.recognition) {
+      setError(commonVoiceCopy.micNotSupported);
+      return;
+    }
+
+    if (!voiceSupport.secureContext) {
+      setError(commonVoiceCopy.insecureContext);
+      return;
+    }
+
+    if (isSubmitting) {
+      return;
+    }
+
+    if (isListening) {
+      stopListening();
+      return;
+    }
+
+    const SpeechRecognition = getSpeechRecognitionConstructor();
+    if (!SpeechRecognition) {
+      setError(commonVoiceCopy.micNotSupported);
+      return;
+    }
+
+    const microphoneCheck = await checkMicrophoneAvailability();
+
+    if (!microphoneCheck.ok) {
+      if (microphoneCheck.reason === "permission-denied") {
+        setError("Microphone permission is blocked for this site. Allow microphone access in the browser site settings and try again.");
+        return;
+      }
+
+      if (microphoneCheck.reason === "no-device") {
+        setError(commonVoiceCopy.noMicrophone);
+        return;
+      }
+
+      if (microphoneCheck.reason === "device-busy") {
+        setError("Your microphone is busy in another app or browser tab. Close the other recording app and try again.");
+        return;
+      }
+    }
+
+    const recognitionLanguage =
+      selectedLanguage === AUTO_LANGUAGE
+        ? activeLanguage !== DEFAULT_LANGUAGE
+          ? activeLanguage
+          : resolveBrowserLanguage()
+        : selectedLanguage;
+    const recognition = new SpeechRecognition();
+
+    recognition.lang = recognitionLanguage || DEFAULT_LANGUAGE;
+    recognition.continuous = false;
+    recognition.interimResults = true;
+    recognition.maxAlternatives = 1;
+
+    pendingVoiceSubmitRef.current = "";
+    setError("");
+    setIsListening(true);
+
+    recognition.onresult = (event) => {
+      let transcript = "";
+
+      for (let index = event.resultIndex; index < event.results.length; index += 1) {
+        transcript += event.results[index][0]?.transcript || "";
+      }
+
+      const normalizedTranscript = transcript.trim();
+      if (!normalizedTranscript) {
+        return;
+      }
+
+      const detectedVoiceLanguage =
+        selectedLanguage === AUTO_LANGUAGE
+          ? detectLanguage(normalizedTranscript)
+          : selectedLanguage;
+
+      setActiveLanguage(detectedVoiceLanguage);
+      setInput(normalizedTranscript);
+
+      const hasFinalChunk = Array.from(event.results).some((result) => result.isFinal);
+      if (hasFinalChunk) {
+        pendingVoiceSubmitRef.current = normalizedTranscript;
+      }
+    };
+
+    recognition.onerror = (event) => {
+      recognitionRef.current = null;
+      setIsListening(false);
+
+      if (event.error === "aborted") {
+        return;
+      }
+
+      if (event.error === "service-not-allowed") {
+        setError(commonVoiceCopy.speechServiceBlocked);
+        return;
+      }
+
+      if (event.error === "not-allowed") {
+        setError("Microphone permission is blocked for speech recognition. Check browser site permissions and speech/privacy settings, then try again.");
+        return;
+      }
+
+      if (event.error === "no-speech") {
+        setError("No speech was detected. Please try again.");
+        return;
+      }
+
+      setError(`Voice input failed: ${event.error}`);
+    };
+
+    recognition.onend = () => {
+      recognitionRef.current = null;
+      setIsListening(false);
+
+      const finalTranscript = pendingVoiceSubmitRef.current.trim();
+      pendingVoiceSubmitRef.current = "";
+
+      if (finalTranscript) {
+        submitMessage(finalTranscript);
+      }
+    };
+
+    recognitionRef.current = recognition;
+    try {
+      recognition.start();
+    } catch (error) {
+      recognitionRef.current = null;
+      setIsListening(false);
+
+      if (error?.name === "NotAllowedError" || error?.name === "SecurityError") {
+        setError(commonVoiceCopy.speechServiceBlocked);
+        return;
+      }
+
+      setError("Voice input could not start in this browser. Try Chrome or Edge on localhost or HTTPS.");
+    }
+  };
+
+  const activeLanguageLabel =
+    LANGUAGE_OPTIONS.find((option) => option.value === uiLanguage)?.label ||
+    "English";
+  const activeSpeechVoice =
+    pickBestSpeechVoice(availableVoices, uiLanguage)?.name || "System default";
+
+  const suggestedPrompts = getVoiceUiCopy(uiLanguage).prompts;
 
   return (
-    <div style={{ padding: p, maxWidth: 840, margin: "0 auto" }}>
+    <div style={{ padding: p, maxWidth: 900, margin: "0 auto" }}>
       <div style={{ marginBottom: 32, textAlign: "center" }}>
-        <h1 style={{ color: T.text, fontSize: isMobile ? 24 : 32, fontWeight: 900, margin: "0 0 8px", fontFamily: "'Poppins',sans-serif" }}>File a Complaint</h1>
-        <p style={{ color: T.sub, fontSize: 15, margin: 0 }}>Register your grievance for quick resolution</p>
+        <h1
+          style={{
+            color: T.text,
+            fontSize: isMobile ? 24 : 32,
+            fontWeight: 900,
+            margin: "0 0 8px",
+            fontFamily: "'Poppins',sans-serif",
+          }}
+        >
+          Voice Complaint Assistant
+        </h1>
+        <p style={{ color: T.sub, fontSize: 15, margin: 0 }}>
+          {uiCopy.description}
+        </p>
       </div>
-
-      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 36, position: "relative", maxWidth: 500, margin: "0 auto 40px" }}>
-        <div style={{ position: "absolute", top: 18, left: 30, right: 30, height: 3, background: T.borderLight, zIndex: 0 }}>
-          <div style={{ height: "100%", width: `${(step - 1) * 50}%`, background: T.primary, transition: "width .3s" }} />
-        </div>
-        {steps.map((s, i) => (
-          <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", position: "relative", zIndex: 1 }}>
-            <div style={{ width: 40, height: 40, borderRadius: "50%", background: step >= s.n ? T.primary : T.white, border: `3px solid ${step >= s.n ? T.primary : T.borderLight}`, color: step >= s.n ? "#fff" : T.sub, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 15, marginBottom: 10, transition: "all .3s", boxShadow: step === s.n ? `0 0 0 4px ${T.primary}22` : "none" }}>{step > s.n ? "✓" : s.n}</div>
-            <div style={{ color: step >= s.n ? T.text : T.sub, fontSize: 12, fontWeight: 700 }}>{s.title}</div>
-            {!isMobile && <div style={{ color: T.muted, fontSize: 11 }}>{s.desc}</div>}
-          </div>
-        ))}
-      </div>
-
-      <div style={{ background: T.white, border: `1px solid ${T.border}`, borderRadius: 24, padding: isMobile ? "24px 20px" : "40px", boxShadow: T.shadow }}>
-        {step === 1 && (
-          <div style={{ animation: "fadeIn .3s" }}>
-            <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 24px", color: T.text, fontFamily: "'Poppins',sans-serif" }}>Citizen Details</h2>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20 }}>
-              <div>
-                <label style={{ display: "block", color: T.textSecondary, fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Full Name <span style={{ color: T.red }}>*</span></label>
-                <input value={fd.n} onChange={e => { setFd({...fd, n: e.target.value}); setErr({...err, n: null}) }} placeholder="Enter name" style={inputStyle("n")} />
-                {err.n && <div style={{ color: T.red, fontSize: 12, marginTop: 6 }}>{err.n}</div>}
-              </div>
-              <div>
-                <label style={{ display: "block", color: T.textSecondary, fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Phone Number <span style={{ color: T.red }}>*</span></label>
-                <input value={fd.p} onChange={e => { setFd({...fd, p: e.target.value}); setErr({...err, p: null}) }} placeholder="+91 98765 43210" style={inputStyle("p")} />
-                {err.p && <div style={{ color: T.red, fontSize: 12, marginTop: 6 }}>{err.p}</div>}
-              </div>
-            </div>
-            <div style={{ marginTop: 32, display: "flex", justifyContent: "flex-end" }}>
-              <button onClick={validate1} style={btnStyle}>Next Step →</button>
-            </div>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div style={{ animation: "fadeIn .3s" }}>
-            <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 24px", color: T.text, fontFamily: "'Poppins',sans-serif" }}>Issue Details</h2>
-            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 20, marginBottom: 20 }}>
-              <div>
-                <label style={{ display: "block", color: T.textSecondary, fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Department <span style={{ color: T.red }}>*</span></label>
-                <select value={fd.d} onChange={e => { setFd({...fd, d: e.target.value}); setErr({...err, d: null}) }} style={inputStyle("d")}>
-                  <option value="">Select Department...</option>
-                  {DEPTS.map(d => <option key={d.name} value={d.name}>{d.name}</option>)}
-                </select>
-                {err.d && <div style={{ color: T.red, fontSize: 12, marginTop: 6 }}>{err.d}</div>}
-              </div>
-              <div>
-                <label style={{ display: "block", color: T.textSecondary, fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Location / Address <span style={{ color: T.red }}>*</span></label>
-                <input value={fd.l} onChange={e => { setFd({...fd, l: e.target.value}); setErr({...err, l: null}) }} placeholder="Street, Area, Ward no." style={inputStyle("l")} />
-                {err.l && <div style={{ color: T.red, fontSize: 12, marginTop: 6 }}>{err.l}</div>}
-              </div>
-            </div>
+      <div style={{ display: "grid", gap: 20 }}>
+        <div
+          style={{
+            background: T.white,
+            border: `1px solid ${T.border}`,
+            borderRadius: 24,
+            padding: isMobile ? "20px" : "28px",
+            boxShadow: T.shadow,
+          }}
+        >
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 12,
+              marginBottom: 16,
+              flexWrap: "wrap",
+            }}
+          >
             <div>
-              <label style={{ display: "block", color: T.textSecondary, fontSize: 13, fontWeight: 700, marginBottom: 8 }}>Description <span style={{ color: T.red }}>*</span></label>
-              <textarea value={fd.desc} onChange={e => { setFd({...fd, desc: e.target.value}); setErr({...err, desc: null}) }} placeholder="Please describe the issue in detail..." rows={4} style={{ ...inputStyle("desc"), resize: "vertical", minHeight: 120 }} />
-              {err.desc && <div style={{ color: T.red, fontSize: 12, marginTop: 6 }}>{err.desc}</div>}
+              <div
+                style={{
+                  color: T.text,
+                  fontSize: 18,
+                  fontWeight: 800,
+                  fontFamily: "'Poppins',sans-serif",
+                }}
+              >
+                Live Complaint Chat
+              </div>
+              <div style={{ color: T.sub, fontSize: 13, marginTop: 4 }}>
+                Voice input uses browser ASR, replies can be spoken back with TTS,
+                and language switches automatically from your input.
+              </div>
             </div>
-            <div style={{ marginTop: 32, display: "flex", justifyContent: "space-between" }}>
-              <button onClick={() => setStep(1)} style={{ ...btnStyle, background: T.white, color: T.text, border: `1px solid ${T.border}`, boxShadow: "none" }}>← Back</button>
-              <button onClick={validate2} style={btnStyle}>Review details →</button>
-            </div>
+            <button
+              onClick={resetConversation}
+              style={{ ...btnStyle, padding: "10px 16px", fontSize: 13 }}
+            >
+              New Chat
+            </button>
           </div>
-        )}
 
-        {step === 3 && (
-          <div style={{ animation: "fadeIn .3s" }}>
-            <h2 style={{ fontSize: 20, fontWeight: 800, margin: "0 0 24px", color: T.text, fontFamily: "'Poppins',sans-serif" }}>Review & Submit</h2>
-            <div style={{ background: T.bg, padding: "24px", borderRadius: 16, border: `1px solid ${T.borderLight}`, display: "flex", flexDirection: "column", gap: 16, marginBottom: 32 }}>
-              <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 16 }}>
-                <div><div style={{ fontSize: 11, color: T.sub, fontWeight: 700, marginBottom: 4 }}>NAME</div><div style={{ fontSize: 15, color: T.text, fontWeight: 600 }}>{fd.n}</div></div>
-                <div><div style={{ fontSize: 11, color: T.sub, fontWeight: 700, marginBottom: 4 }}>PHONE</div><div style={{ fontSize: 15, color: T.text, fontWeight: 600 }}>{fd.p}</div></div>
-                <div><div style={{ fontSize: 11, color: T.sub, fontWeight: 700, marginBottom: 4 }}>DEPARTMENT</div><div style={{ fontSize: 15, color: T.text, fontWeight: 600 }}>{fd.d}</div></div>
-                <div><div style={{ fontSize: 11, color: T.sub, fontWeight: 700, marginBottom: 4 }}>LOCATION</div><div style={{ fontSize: 15, color: T.text, fontWeight: 600 }}>{fd.l}</div></div>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: isMobile ? "1fr" : "1.2fr 1fr 1fr",
+              gap: 12,
+              marginBottom: 16,
+            }}
+          >
+            <label
+              style={{
+                display: "grid",
+                gap: 6,
+                color: T.sub,
+                fontSize: 12,
+                fontWeight: 700,
+                textTransform: "uppercase",
+                letterSpacing: 0.8,
+              }}
+            >
+              Input Language
+              <select
+                value={selectedLanguage}
+                onChange={(event) => {
+                  const nextLanguage = event.target.value;
+                  setSelectedLanguage(nextLanguage);
+                  if (nextLanguage !== AUTO_LANGUAGE) {
+                    setActiveLanguage(nextLanguage);
+                  }
+                }}
+                style={{
+                  borderRadius: 12,
+                  border: `1px solid ${T.border}`,
+                  background: T.bg,
+                  color: T.text,
+                  padding: "12px 14px",
+                  fontSize: 14,
+                  outline: "none",
+                }}
+              >
+                {LANGUAGE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <div
+              style={{
+                background: T.bg,
+                border: `1px solid ${T.borderLight}`,
+                borderRadius: 14,
+                padding: "12px 14px",
+                display: "grid",
+                gap: 4,
+              }}
+            >
+              <div
+                style={{
+                  color: T.sub,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: 1,
+                }}
+              >
+                Active Language
               </div>
-              <div style={{ borderTop: `1px solid ${T.borderLight}`, paddingTop: 16 }}>
-                <div style={{ fontSize: 11, color: T.sub, fontWeight: 700, marginBottom: 6 }}>DESCRIPTION</div>
-                <div style={{ fontSize: 15, color: T.text, lineHeight: 1.6 }}>{fd.desc}</div>
+              <div style={{ color: T.text, fontSize: 15, fontWeight: 800 }}>
+                {activeLanguageLabel}
+              </div>
+              <div style={{ color: T.sub, fontSize: 12 }}>
+                {selectedLanguage === AUTO_LANGUAGE
+                  ? "Detected from your latest message"
+                  : "Locked from your language selection"}
               </div>
             </div>
-            <div style={{ display: "flex", gap: 12, alignItems: "flex-start", background: T.cyanBg, padding: 16, borderRadius: 12, marginBottom: 32, border: `1px solid ${T.cyan}33` }}>
-              <span style={{ fontSize: 20 }}>ℹ️</span>
-              <p style={{ margin: 0, fontSize: 13, color: T.cyan, lineHeight: 1.6, fontWeight: 600 }}>By submitting, you confirm that the information provided is true to the best of your knowledge.</p>
-            </div>
-            <div style={{ display: "flex", justifyContent: "space-between" }}>
-              <button onClick={() => setStep(2)} style={{ ...btnStyle, background: T.white, color: T.text, border: `1px solid ${T.border}`, boxShadow: "none" }}>← Edit</button>
-              <button onClick={submit} style={{ ...btnStyle, background: T.green, boxShadow: `0 6px 20px ${T.green}33` }}>Submit Complaint ✓</button>
+
+            <div
+              style={{
+                background: T.bg,
+                border: `1px solid ${T.borderLight}`,
+                borderRadius: 14,
+                padding: "12px 14px",
+                display: "grid",
+                gap: 4,
+              }}
+            >
+              <div
+                style={{
+                  color: T.sub,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  textTransform: "uppercase",
+                  letterSpacing: 1,
+                }}
+              >
+                Browser Support
+              </div>
+              <div style={{ color: T.text, fontSize: 14, fontWeight: 700 }}>
+                Mic: {voiceSupport.recognition ? "Ready" : "Unavailable"}
+              </div>
+              <div style={{ color: T.text, fontSize: 14, fontWeight: 700 }}>
+                Voice: {voiceSupport.synthesis ? "Ready" : "Unavailable"}
+              </div>
+              <div style={{ color: T.text, fontSize: 14, fontWeight: 700 }}>
+                Secure page: {voiceSupport.secureContext ? "Yes" : "No"}
+              </div>
+              <div style={{ color: T.text, fontSize: 14, fontWeight: 700 }}>
+                Active voice: {activeSpeechVoice}
+              </div>
             </div>
           </div>
-        )}
+
+          <div
+            ref={listRef}
+            style={{
+              background: T.bg,
+              border: `1px solid ${T.borderLight}`,
+              borderRadius: 18,
+              padding: "16px",
+              minHeight: 360,
+              maxHeight: 480,
+              overflowY: "auto",
+              display: "flex",
+              flexDirection: "column",
+              gap: 14,
+            }}
+          >
+            {messages.map((message, index) => (
+              <div
+                key={`${message.role}-${index}`}
+                style={{
+                  alignSelf: message.role === "user" ? "flex-end" : "flex-start",
+                  maxWidth: isMobile ? "88%" : "72%",
+                  background: message.role === "user" ? T.gradientRed : T.white,
+                  color: message.role === "user" ? "#fff" : T.text,
+                  border:
+                    message.role === "user"
+                      ? "none"
+                      : `1px solid ${T.border}`,
+                  borderRadius: 18,
+                  padding: "12px 14px",
+                  boxShadow:
+                    message.role === "user"
+                      ? `0 8px 18px ${T.primary}22`
+                      : "none",
+                  lineHeight: 1.5,
+                  whiteSpace: "pre-wrap",
+                }}
+              >
+                {message.content}
+              </div>
+            ))}
+            {isSubmitting && (
+              <div
+                style={{
+                  alignSelf: "flex-start",
+                  background: T.white,
+                  border: `1px solid ${T.border}`,
+                  borderRadius: 18,
+                  padding: "12px 14px",
+                  color: T.sub,
+                }}
+              >
+                {uiCopy.submitting}
+              </div>
+            )}
+          </div>
+
+          {ticket && (
+            <div
+              style={{
+                marginTop: 16,
+                background: T.white,
+                border: `1px solid ${T.border}`,
+                borderRadius: 18,
+                padding: isMobile ? "18px" : "22px",
+                boxShadow: T.shadow,
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  flexWrap: "wrap",
+                  marginBottom: 16,
+                }}
+              >
+                <div>
+                  <div
+                    style={{
+                      color: T.green,
+                      fontSize: 13,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: 1,
+                    }}
+                  >
+                    Ticket Generated
+                  </div>
+                  <div
+                    style={{
+                      color: T.text,
+                      fontSize: 22,
+                      fontWeight: 900,
+                      fontFamily: "'Poppins',sans-serif",
+                      marginTop: 4,
+                    }}
+                  >
+                    Complaint Filed
+                  </div>
+                </div>
+                <Link
+                  to="/dashboard/my-complaints"
+                  style={{ ...btnStyle, padding: "10px 16px", fontSize: 13 }}
+                >
+                  Track Status
+                </Link>
+              </div>
+
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: isMobile
+                    ? "1fr"
+                    : "repeat(2, minmax(0, 1fr))",
+                  gap: 12,
+                }}
+              >
+                <div
+                  style={{
+                    background: T.bg,
+                    border: `1px solid ${T.borderLight}`,
+                    borderRadius: 12,
+                    padding: "14px 16px",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: T.sub,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: 1,
+                      marginBottom: 6,
+                    }}
+                  >
+                    Complaint ID
+                  </div>
+                  <div
+                    style={{
+                      color: T.primary,
+                      fontSize: 17,
+                      fontWeight: 900,
+                      fontFamily: "monospace",
+                    }}
+                  >
+                    {complaintId}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    background: T.bg,
+                    border: `1px solid ${T.borderLight}`,
+                    borderRadius: 12,
+                    padding: "14px 16px",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: T.sub,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: 1,
+                      marginBottom: 6,
+                    }}
+                  >
+                    Department
+                  </div>
+                  <div style={{ color: T.text, fontSize: 15, fontWeight: 700 }}>
+                    {ticket?.department || "General"}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    background: T.bg,
+                    border: `1px solid ${T.borderLight}`,
+                    borderRadius: 12,
+                    padding: "14px 16px",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: T.sub,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: 1,
+                      marginBottom: 6,
+                    }}
+                  >
+                    Location
+                  </div>
+                  <div style={{ color: T.text, fontSize: 15, fontWeight: 700 }}>
+                    {ticket?.location || "Not provided"}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    background: T.bg,
+                    border: `1px solid ${T.borderLight}`,
+                    borderRadius: 12,
+                    padding: "14px 16px",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: T.sub,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: 1,
+                      marginBottom: 6,
+                    }}
+                  >
+                    Priority
+                  </div>
+                  <div style={{ color: T.text, fontSize: 15, fontWeight: 700 }}>
+                    {ticket?.priority || "Medium"}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    background: T.bg,
+                    border: `1px solid ${T.borderLight}`,
+                    borderRadius: 12,
+                    padding: "14px 16px",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: T.sub,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: 1,
+                      marginBottom: 6,
+                    }}
+                  >
+                    Status
+                  </div>
+                  <div style={{ color: T.text, fontSize: 15, fontWeight: 700 }}>
+                    {ticket?.status || "Pending"}
+                  </div>
+                </div>
+                <div
+                  style={{
+                    background: T.bg,
+                    border: `1px solid ${T.borderLight}`,
+                    borderRadius: 12,
+                    padding: "14px 16px",
+                  }}
+                >
+                  <div
+                    style={{
+                      color: T.sub,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      textTransform: "uppercase",
+                      letterSpacing: 1,
+                      marginBottom: 6,
+                    }}
+                  >
+                    Created
+                  </div>
+                  <div style={{ color: T.text, fontSize: 15, fontWeight: 700 }}>
+                    {ticket?.createdAt
+                      ? new Date(ticket.createdAt).toLocaleString()
+                      : "Just now"}
+                  </div>
+                </div>
+              </div>
+
+              <div
+                style={{
+                  background: T.bg,
+                  border: `1px solid ${T.borderLight}`,
+                  borderRadius: 12,
+                  padding: "14px 16px",
+                  marginTop: 12,
+                }}
+              >
+                <div
+                  style={{
+                    color: T.sub,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    textTransform: "uppercase",
+                    letterSpacing: 1,
+                    marginBottom: 6,
+                  }}
+                >
+                  Complaint Summary
+                </div>
+                <div style={{ color: T.text, fontSize: 15, lineHeight: 1.6 }}>
+                  {ticket?.complaint ||
+                    "Your complaint has been registered successfully."}
+                </div>
+              </div>
+
+              <button
+                onClick={resetConversation}
+                style={{
+                  ...btnStyle,
+                  marginTop: 16,
+                  background: T.white,
+                  color: T.text,
+                  border: `1px solid ${T.border}`,
+                  boxShadow: "none",
+                }}
+              >
+                File Another
+              </button>
+            </div>
+          )}
+
+          <div
+            style={{
+              display: "flex",
+              gap: 12,
+              marginTop: 16,
+              flexDirection: isMobile ? "column" : "row",
+            }}
+          >
+            <input
+              value={input}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                setInput(nextValue);
+                setError("");
+
+                if (selectedLanguage === AUTO_LANGUAGE && nextValue.trim()) {
+                  setActiveLanguage(detectLanguage(nextValue));
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  submitMessage();
+                }
+              }}
+              placeholder={uiCopy.placeholder}
+              style={{
+                flex: 1,
+                padding: "14px 16px",
+                background: T.white,
+                border: `1px solid ${error ? T.red : T.border}`,
+                borderRadius: 12,
+                color: T.text,
+                fontSize: 15,
+                outline: "none",
+              }}
+              disabled={isSubmitting}
+            />
+            <button
+              onClick={startListening}
+              style={{
+                ...pillButtonStyle,
+                minWidth: isMobile ? "100%" : 140,
+                background: isListening ? `${T.accent}15` : T.white,
+                border: `1px solid ${isListening ? T.accent : T.border}`,
+                color: isListening ? T.accent : T.text,
+              }}
+              disabled={isSubmitting}
+            >
+              {isListening ? uiCopy.stopVoice : uiCopy.startVoice}
+            </button>
+            <button
+              onClick={() => {
+                setVoiceRepliesEnabled((currentValue) => !currentValue);
+              }}
+              style={{
+                ...pillButtonStyle,
+                minWidth: isMobile ? "100%" : 150,
+                background: voiceRepliesEnabled ? `${T.green}12` : T.white,
+                border: `1px solid ${voiceRepliesEnabled ? T.green : T.border}`,
+                color: voiceRepliesEnabled ? T.green : T.text,
+              }}
+            >
+              {voiceRepliesEnabled ? uiCopy.voiceOn : uiCopy.voiceOff}
+            </button>
+            <button
+              onClick={() => submitMessage()}
+              style={btnStyle}
+              disabled={isSubmitting}
+            >
+              {uiCopy.send}
+            </button>
+          </div>
+
+          <div
+            style={{
+              display: "flex",
+              gap: 10,
+              marginTop: 10,
+              flexWrap: "wrap",
+            }}
+          >
+            {isListening && (
+              <div
+                style={{
+                  background: `${T.accent}14`,
+                  color: T.accent,
+                  border: `1px solid ${T.accent}33`,
+                  borderRadius: 999,
+                  padding: "8px 12px",
+                  fontSize: 12,
+                  fontWeight: 700,
+                }}
+              >
+                {uiCopy.listening}
+              </div>
+            )}
+            {!voiceSupport.recognition && (
+              <div style={{ color: T.sub, fontSize: 12 }}>
+                {commonVoiceCopy.micNotSupported}
+              </div>
+            )}
+            {!voiceSupport.synthesis && (
+              <div style={{ color: T.sub, fontSize: 12 }}>
+                {commonVoiceCopy.voiceNotSupported}
+              </div>
+            )}
+          </div>
+
+          {error && (
+            <div
+              style={{
+                color: T.red,
+                fontSize: 13,
+                marginTop: 10,
+                fontWeight: 600,
+              }}
+            >
+              {error}
+            </div>
+          )}
+        </div>
+
+        <div
+          style={{
+            background: T.white,
+            border: `1px solid ${T.border}`,
+            borderRadius: 24,
+            padding: isMobile ? "20px" : "28px",
+            boxShadow: T.shadow,
+          }}
+        >
+          <div
+            style={{
+              color: T.text,
+              fontSize: 18,
+              fontWeight: 800,
+              fontFamily: "'Poppins',sans-serif",
+              marginBottom: 12,
+            }}
+          >
+            Suggested prompts
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+            {suggestedPrompts.map((prompt) => (
+              <button
+                key={prompt}
+                onClick={() => {
+                  setInput(prompt);
+                  if (selectedLanguage === AUTO_LANGUAGE) {
+                    setActiveLanguage(detectLanguage(prompt));
+                  }
+                }}
+                style={{
+                  border: `1px solid ${T.border}`,
+                  background: T.bg,
+                  color: T.text,
+                  borderRadius: 999,
+                  padding: "10px 14px",
+                  cursor: "pointer",
+                  fontSize: 13,
+                  fontWeight: 600,
+                }}
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -17,8 +17,17 @@ import DBMyComplaints from "./pages/DBMyComplaints";
    PROTECTED ROUTE — redirects to /login if not authenticated
 ═══════════════════════════════════════════════════════════════ */
 function ProtectedRoute({ children }) {
-  const { user } = useAuth();
+  const { user, isBootstrapping } = useAuth();
+  if (isBootstrapping) return null;
   if (!user) return <Navigate to="/login" replace />;
+  return children;
+}
+
+function UserRoute({ children }) {
+  const { user, isBootstrapping } = useAuth();
+  if (isBootstrapping) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (user.role !== "user") return <Navigate to="/dashboard" replace />;
   return children;
 }
 
@@ -26,7 +35,8 @@ function ProtectedRoute({ children }) {
    ADMIN-ONLY ROUTE — redirects regular users to dashboard
 ═══════════════════════════════════════════════════════════════ */
 function AdminRoute({ children }) {
-  const { isAdmin } = useAuth();
+  const { isAdmin, isBootstrapping } = useAuth();
+  if (isBootstrapping) return null;
   if (!isAdmin) return <Navigate to="/dashboard" replace />;
   return children;
 }
@@ -48,10 +58,10 @@ export default function App() {
             <ProtectedRoute><DashboardLayout /></ProtectedRoute>
           }>
             <Route index element={<DBDashboard />} />
-            <Route path="complaints" element={<DBComplaints />} />
-            <Route path="file" element={<DBFile />} />
-            <Route path="track" element={<DBTrack />} />
-            <Route path="my-complaints" element={<DBMyComplaints />} />
+            <Route path="complaints" element={<AdminRoute><DBComplaints /></AdminRoute>} />
+            <Route path="file" element={<UserRoute><DBFile /></UserRoute>} />
+            <Route path="track" element={<UserRoute><DBTrack /></UserRoute>} />
+            <Route path="my-complaints" element={<UserRoute><DBMyComplaints /></UserRoute>} />
             <Route path="departments" element={<DBDepts />} />
             <Route path="analytics" element={
               <AdminRoute><DBAnalytics /></AdminRoute>
@@ -59,7 +69,7 @@ export default function App() {
             <Route path="escalations" element={
               <AdminRoute><DBEscalations /></AdminRoute>
             } />
-            <Route path="profile" element={<DBProfile />} />
+            <Route path="profile" element={<ProtectedRoute><DBProfile /></ProtectedRoute>} />
           </Route>
 
           {/* Catch-all */}

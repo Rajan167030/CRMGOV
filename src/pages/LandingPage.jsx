@@ -4,6 +4,7 @@ import T from "../constants/tokens";
 import { DEPTS } from "../data/mockData";
 import Counter from "../components/Counter";
 import Reveal from "../components/Reveal";
+import DelhiHeatMap from "../components/DelhiHeatMap";
 import useIsMobile from "../hooks/useIsMobile";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -65,7 +66,7 @@ export default function LandingPage() {
         </div>
         {!isMobile && (
           <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
-            {["Services", "How It Works", "Departments", "About"].map(l => (
+            {["Services", "Heatmap", "How It Works", "Departments", "About"].map(l => (
               <a key={l} href={`#${l.toLowerCase().replace(/ /g, "-")}`} style={{ color: T.textSecondary, fontSize: 14, fontWeight: 600, transition: "color .2s" }}
                 onMouseEnter={e => e.target.style.color = T.primary} onMouseLeave={e => e.target.style.color = T.textSecondary}>{l}</a>
             ))}
@@ -88,7 +89,7 @@ export default function LandingPage() {
       {/* ── Mobile Nav Dropdown ── */}
       {isMobile && mobileNav && (
         <div style={{ position: "fixed", top: 64, left: 0, right: 0, zIndex: 999, background: T.white, borderBottom: `1px solid ${T.border}`, padding: "16px 20px", display: "flex", flexDirection: "column", gap: 10, boxShadow: T.shadow }}>
-          {["Services", "How It Works", "Departments", "About"].map(l => (
+          {["Services", "Heatmap", "How It Works", "Departments", "About"].map(l => (
             <a key={l} href={`#${l.toLowerCase().replace(/ /g, "-")}`} onClick={() => setMobileNav(false)} style={{ color: T.textSecondary, fontSize: 14, fontWeight: 600, padding: "8px 0" }}>{l}</a>
           ))}
           <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
@@ -180,6 +181,22 @@ export default function LandingPage() {
               </Reveal>
             ))}
           </div>
+        </div>
+      </section>
+
+      {/* ── COMPLAINT HEAT MAP ── */}
+      <section id="heatmap" style={{ background: T.white, padding: isMobile ? "48px 16px" : "80px 48px", borderTop: `1px solid ${T.border}` }}>
+        <div style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <Reveal>
+            <div style={{ textAlign: "center", marginBottom: isMobile ? 32 : 48 }}>
+              <div style={{ display: "inline-block", background: T.primaryBg, color: T.primary, padding: "5px 16px", borderRadius: 100, fontSize: 11, fontWeight: 700, letterSpacing: 2, textTransform: "uppercase", marginBottom: 14 }}>🗺️ Live Insight</div>
+              <h2 style={{ fontSize: isMobile ? 24 : 36, fontWeight: 900, color: T.text, margin: "0 0 10px" }}>Delhi Complaint Heatmap</h2>
+              <p style={{ color: T.sub, fontSize: 15, maxWidth: 560, margin: "0 auto" }}>Real-time visualization of active civic complaints across Delhi's districts — powered by AI classification.</p>
+            </div>
+          </Reveal>
+          <Reveal delay={0.1}>
+            <DelhiHeatMap />
+          </Reveal>
         </div>
       </section>
 

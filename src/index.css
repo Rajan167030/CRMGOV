@@ -134,6 +134,21 @@ textarea::placeholder {
   from { transform: rotate(0deg); }
   to   { transform: rotate(360deg); }
 }
+@keyframes districtPulse {
+  0%   { fill: inherit; stroke-width: 2; }
+  15%  { fill: #EF4444; stroke: #B91C1C; stroke-width: 4; }
+  30%  { fill: inherit; stroke-width: 2; }
+  45%  { fill: #EF4444; stroke: #B91C1C; stroke-width: 4; }
+  60%  { fill: inherit; stroke-width: 2; }
+  75%  { fill: #EF4444; stroke: #B91C1C; stroke-width: 4; }
+  100% { fill: inherit; stroke-width: 2; }
+}
+
+/* Applied dynamically to GeoJSON SVG paths via JS */
+.district-pulse {
+  animation: districtPulse 2s ease-in-out forwards !important;
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.6));
+}
 
 /* ── Role Switch Toggle ── */
 .role-switch {
